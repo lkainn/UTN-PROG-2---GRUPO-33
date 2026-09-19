@@ -2,16 +2,17 @@
 <CodeBlocks_project_file>
 	<FileVersion major="1" minor="6" />
 	<Project>
-		<Option title="ScrapProtocol" />
+		<Option title="ProyectoTPI" />
 		<Option pch_mode="2" />
 		<Option compiler="gcc-mingw32" />
 		<Build>
 			<Target title="Debug">
-				<Option output="bin/Debug/ScrapProtocol" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/Debug/ProyectoTPI" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc-mingw32" />
 				<Compiler>
+					<Add option="-std=c++17" />
 					<Add option="-g" />
 				</Compiler>
 				<Linker>
@@ -21,11 +22,12 @@
 				</Linker>
 			</Target>
 			<Target title="Release">
-				<Option output="bin/Release/ScrapProtocol" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/Release/ProyectoTPI" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Release/" />
 				<Option type="1" />
 				<Option compiler="gcc-mingw32" />
 				<Compiler>
+					<Add option="-std=c++17" />
 					<Add option="-O2" />
 				</Compiler>
 				<Linker>

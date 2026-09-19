@@ -1,4 +1,4 @@
-# Decisiones iniciales de Scrap Protocol
+# Decisiones iniciales del Proyecto TPI
 
 - Biblioteca grafica: SFML 3.1.0.
 - IDE: Code::Blocks.
@@ -17,4 +17,3 @@
 
 La primera version abre una ventana, procesa el evento de cierre, permite salir
 con Escape y dibuja un rectangulo de prueba. Todavia no contiene jugabilidad.
-

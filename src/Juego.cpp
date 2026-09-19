@@ -5,7 +5,7 @@
 Juego::Juego()
     : ventana(
           sf::VideoMode({Configuracion::ANCHO_VENTANA, Configuracion::ALTO_VENTANA}),
-          "Scrap Protocol"),
+          "Proyecto TPI"),
       robotPrueba({64.0f, 64.0f}) {
     ventana.setFramerateLimit(Configuracion::LIMITE_FPS);
 
@@ -48,4 +48,3 @@ void Juego::dibujar() {
     ventana.draw(robotPrueba);
     ventana.display();
 }
-

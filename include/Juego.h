@@ -1,5 +1,4 @@
-#ifndef JUEGO_H
-#define JUEGO_H
+#pragma once
 
 #include <SFML/Graphics.hpp>
 
@@ -17,6 +16,3 @@ private:
     void actualizar();
     void dibujar();
 };
-
-#endif
-

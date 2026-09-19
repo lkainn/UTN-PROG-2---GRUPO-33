@@ -1,11 +1,7 @@
-#ifndef CONFIGURACION_H
-#define CONFIGURACION_H
+#pragma once
 
 namespace Configuracion {
-    constexpr unsigned int ANCHO_VENTANA = 1920;
-    constexpr unsigned int ALTO_VENTANA = 1080;
-    constexpr unsigned int LIMITE_FPS = 60;
+    const unsigned int ANCHO_VENTANA = 1920;
+    const unsigned int ALTO_VENTANA = 1080;
+    const unsigned int LIMITE_FPS = 60;
 }
-
-#endif
-

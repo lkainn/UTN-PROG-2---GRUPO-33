@@ -1,6 +1,6 @@
-# Scrap Protocol
+# Proyecto TPI
 
-Base minima ejecutable del proyecto academico Scrap Protocol.
+Base minima ejecutable del proyecto academico, con nombre temporal.
 
 ## Requisitos verificados
 
@@ -32,7 +32,7 @@ la misma copia localmente.
 
 ## Abrir y compilar
 
-1. Abrir `ScrapProtocol.cbp` con Code::Blocks.
+1. Abrir `ProyectoTPI.cbp` con Code::Blocks.
 2. Elegir el objetivo `Debug`.
 3. Compilar el proyecto.
 4. Copiar las DLL de `dependencias/SFML/bin` a `bin/Debug`.

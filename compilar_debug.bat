@@ -22,12 +22,11 @@ if not exist "obj\Debug" mkdir "obj\Debug"
     src\main.cpp src\Juego.cpp ^
     -L"%SFML%\lib" ^
     -lsfml-graphics-d -lsfml-window-d -lsfml-system-d ^
-    -o bin\Debug\ScrapProtocol.exe
+    -o bin\Debug\ProyectoTPI.exe
 
 if errorlevel 1 exit /b 1
 
 copy /Y "%SFML%\bin\*.dll" "bin\Debug\" >nul
 
-echo Compilacion terminada: bin\Debug\ScrapProtocol.exe
+echo Compilacion terminada: bin\Debug\ProyectoTPI.exe
 exit /b 0
-
