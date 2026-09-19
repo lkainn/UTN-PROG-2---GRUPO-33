@@ -1,0 +1,8 @@
+bin/
+obj/
+dependencias/SFML/
+dependencias/*.zip
+*.layout
+*.depend
+*.dat
+
