@@ -4,5 +4,3 @@ dependencias/SFML/
 dependencias/*.zip
 *.layout
 *.depend
-*.dat
-
