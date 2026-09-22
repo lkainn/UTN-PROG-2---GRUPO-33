@@ -1,7 +1,8 @@
 @echo off
 setlocal
 
-set "COMPILADOR=C:\Program Files\CodeBlocks\MinGW\bin\g++.exe"
+set "BIN_COMPILADOR=C:\Program Files\CodeBlocks\MinGW\bin"
+set "COMPILADOR=%BIN_COMPILADOR%\g++.exe"
 set "SFML=dependencias\SFML"
 
 if not exist "%COMPILADOR%" (
@@ -19,7 +20,7 @@ if not exist "obj\Debug" mkdir "obj\Debug"
 
 "%COMPILADOR%" -std=c++17 -Wall -Wextra ^
     -Iinclude -I"%SFML%\include" ^
-    src\main.cpp src\Juego.cpp ^
+    src\main.cpp src\Juego.cpp src\Proyectil.cpp src\SistemaColisiones.cpp ^
     -L"%SFML%\lib" ^
     -lsfml-graphics-d -lsfml-window-d -lsfml-system-d ^
     -o bin\Debug\ProyectoTPI.exe
@@ -27,6 +28,12 @@ if not exist "obj\Debug" mkdir "obj\Debug"
 if errorlevel 1 exit /b 1
 
 copy /Y "%SFML%\bin\*.dll" "bin\Debug\" >nul
+if errorlevel 1 exit /b 1
+
+for %%D in (libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll) do (
+    copy /Y "%BIN_COMPILADOR%\%%D" "bin\Debug\" >nul
+    if errorlevel 1 exit /b 1
+)
 
 echo Compilacion terminada: bin\Debug\ProyectoTPI.exe
 exit /b 0

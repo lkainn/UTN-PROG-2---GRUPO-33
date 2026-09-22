@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Comunes.h"
+#include "TiposCompartidos.h"
 
 class Enemigo {
     private:
