@@ -49,7 +49,12 @@
 		</Linker>
 		<Unit filename="include/Configuracion.h" />
 		<Unit filename="include/Juego.h" />
+		<Unit filename="include/Proyectil.h" />
+		<Unit filename="include/SistemaColisiones.h" />
+		<Unit filename="include/TiposCompartidos.h" />
 		<Unit filename="src/Juego.cpp" />
+		<Unit filename="src/Proyectil.cpp" />
+		<Unit filename="src/SistemaColisiones.cpp" />
 		<Unit filename="src/main.cpp" />
 		<Extensions />
 	</Project>
