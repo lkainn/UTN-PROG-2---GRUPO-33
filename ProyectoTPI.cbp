@@ -47,8 +47,11 @@
 		<Linker>
 			<Add directory="dependencias/SFML/lib" />
 		</Linker>
+		<Unit filename="include/Comunes.h" />
 		<Unit filename="include/Configuracion.h" />
+		<Unit filename="include/Enemigo.h" />
 		<Unit filename="include/Juego.h" />
+		<Unit filename="src/Enemigo.cpp" />
 		<Unit filename="src/Juego.cpp" />
 		<Unit filename="src/main.cpp" />
 		<Extensions />
