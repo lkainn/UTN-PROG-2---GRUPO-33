@@ -3,10 +3,12 @@
 #include <cmath>
 
 // Iniciamos el constructor
-Enemigo::Enemigo(int _idEnemigo, float _x, float _y, float _velocidad, int _vida, int _dano, const char* _nombre, int _experienciaOtorgada, int _chatarraOtorgada){
+Enemigo::Enemigo(int _idEnemigo, float _x, float _y, float _ancho, float _alto, float _velocidad, int _vida, int _dano, const char* _nombre, int _experienciaOtorgada, int _chatarraOtorgada){
     idEnemigo = _idEnemigo;
     x = _x;
     y = _y;
+    ancho = _ancho;
+    alto = _alto;
     velocidad = _velocidad;
     vida = _vida;
     dano = _dano;
@@ -27,13 +29,24 @@ void Enemigo::actualizar(Posicion objetivo, float dt) {
 
     // 3. Si ya esta encima del objetivo no hay hacia donde ir
     if (distancia > 0.0f) {
-        // Normalizamos: el vector queda de largo 1, solo direccion
-        dx /= distancia;
-        dy /= distancia;
+        // Cuanto avanzaria en este frame
+        float paso = velocidad * dt;
 
-        // 4. Avanzamos segun la velocidad y el tiempo transcurrido
-        x += dx * velocidad * dt;
-        y += dy * velocidad * dt;
+        if (paso >= distancia) {
+            // Llegaria o se pasaria de largo: lo dejamos justo encima del
+            // objetivo. Sin esto vibra al llegar, porque cada frame se pasa
+            // para un lado y al siguiente vuelve para el otro.
+            x = objetivo.x;
+            y = objetivo.y;
+        } else {
+            // Normalizamos: el vector queda de largo 1, solo direccion
+            dx /= distancia;
+            dy /= distancia;
+
+            // 4. Avanzamos segun la velocidad y el tiempo transcurrido
+            x += dx * paso;
+            y += dy * paso;
+        }
     }
 }
 
@@ -42,6 +55,17 @@ Posicion Enemigo::obtenerPosicion()const{ // informa donde esta el enemigo
     p.x = x;
     p.y = y;
     return p;
+}
+
+// Rectangulo que usa el SistemaColisiones para detectar impactos.
+// x e y son la esquina superior izquierda, igual que en el resto del equipo.
+FormaColision Enemigo::obtenerFormaColision()const{
+    FormaColision forma;
+    forma.x = x;
+    forma.y = y;
+    forma.ancho = ancho;
+    forma.alto = alto;
+    return forma;
 }
 
 void Enemigo::recibirDanio(int cantidad){ // aca calculamos el dano recibido
