@@ -1,10 +1,13 @@
 #pragma once
 
+#include "Arma.h"
 #include "Enemigo.h"
 #include "Jugador.h"
-#include "Proyectil.h"
 
 #include <SFML/Graphics.hpp>
+
+#include <array>
+#include <cstddef>
 
 class Juego {
 public:
@@ -13,17 +16,23 @@ public:
     void ejecutar();
 
 private:
+    static constexpr std::size_t CANTIDAD_ENEMIGOS = 3;
+
     sf::RenderWindow ventana;
     Jugador jugador;
-    Enemigo enemigoPrueba;
-    sf::RectangleShape figuraEnemigoPrueba;
+    std::array<Enemigo, CANTIDAD_ENEMIGOS> enemigosPrueba;
+    std::array<sf::RectangleShape, CANTIDAD_ENEMIGOS> figurasEnemigosPrueba;
+    std::array<float, CANTIDAD_ENEMIGOS> tiemposReaparicion;
     sf::RectangleShape figuraProyectilPrueba;
     Proyectil proyectilPrueba;
+    Arma armaPrueba;
     sf::Clock relojFotogramas;
 
     void procesarEventos();
     void actualizar();
+    void actualizarEnemigos(float segundos);
+    void actualizarProyectil(float segundos);
     void dibujar();
-    void dispararProyectil();
+    void actualizarDisparoAutomatico();
     void reiniciarPrueba();
 };
