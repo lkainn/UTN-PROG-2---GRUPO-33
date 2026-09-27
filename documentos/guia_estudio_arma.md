@@ -350,6 +350,201 @@ decide por si sola a cual atacar.
 La seleccion del objetivo pertenece a `Juego` porque alli se encuentran y se
 coordinan todas las entidades de la demostracion.
 
+### 12.1 Por que se usa `std::array`
+
+`Juego` necesita administrar varios enemigos, pero la cantidad de esta
+demostracion es fija y conocida al compilar. Por eso se usa `std::array` en vez
+de memoria dinamica:
+
+```cpp
+static constexpr std::size_t CANTIDAD_ENEMIGOS = 3;
+```
+
+`std::array` guarda una cantidad fija de elementos del mismo tipo. En este caso
+siempre existen tres lugares disponibles para enemigos, figuras y tiempos de
+reaparicion.
+
+La constante evita escribir el numero `3` en todas las declaraciones. Si la
+cantidad cambia, los arreglos que usan `CANTIDAD_ENEMIGOS` cambian juntos.
+
+### 12.2 Arreglo de posiciones iniciales
+
+En `Juego.cpp` se declaran las posiciones donde aparecen los enemigos:
+
+```cpp
+constexpr std::array<Posicion, 3> POSICIONES_INICIALES_ENEMIGOS{{
+    {1440.0f, 200.0f},
+    {1440.0f, 512.0f},
+    {1440.0f, 824.0f}
+}};
+```
+
+Cada elemento es una estructura `Posicion` con una coordenada `x` y una
+coordenada `y`:
+
+```text
+Indice 0 → posicion superior derecha
+Indice 1 → posicion central derecha
+Indice 2 → posicion inferior derecha
+```
+
+El arreglo es `constexpr` porque estas posiciones son datos fijos de la
+demostracion. No cambian durante la ejecucion.
+
+La funcion `crearEnemigo()` recibe un indice y consulta la posicion
+correspondiente:
+
+```cpp
+Enemigo crearEnemigo(std::size_t indice) {
+    const Posicion posicion = POSICIONES_INICIALES_ENEMIGOS[indice];
+
+    return Enemigo(
+        static_cast<int>(indice) + 1,
+        posicion.x,
+        posicion.y,
+        // otras estadisticas
+    );
+}
+```
+
+El indice tambien se usa para generar un identificador desde `1`. El elemento
+`0` recibe ID `1`, el elemento `1` recibe ID `2` y el elemento `2` recibe ID
+`3`.
+
+### 12.3 Arreglos relacionados por indice
+
+`Juego` conserva tres arreglos principales:
+
+```cpp
+std::array<Enemigo, CANTIDAD_ENEMIGOS> enemigosPrueba;
+
+std::array<sf::RectangleShape, CANTIDAD_ENEMIGOS>
+    figurasEnemigosPrueba;
+
+std::array<float, CANTIDAD_ENEMIGOS> tiemposReaparicion;
+```
+
+Estos son arreglos paralelos. Los elementos que tienen el mismo indice
+pertenecen a la misma entidad:
+
+```text
+Indice i
+├── enemigosPrueba[i]          → estado logico del enemigo
+├── figurasEnemigosPrueba[i]   → representacion visual
+├── tiemposReaparicion[i]      → tiempo restante si esta muerto
+└── POSICIONES_INICIALES_ENEMIGOS[i] → lugar donde reaparece
+```
+
+Por ejemplo, para el enemigo del indice `1` se deben utilizar:
+
+```cpp
+enemigosPrueba[1];
+figurasEnemigosPrueba[1];
+tiemposReaparicion[1];
+POSICIONES_INICIALES_ENEMIGOS[1];
+```
+
+Mezclar indices produciria errores. Por ejemplo, mover
+`figurasEnemigosPrueba[2]` usando la posicion de `enemigosPrueba[0]` haria que
+la figura visible no coincida con el enemigo logico.
+
+### 12.4 Inicializacion de los arreglos
+
+`Enemigo` no tiene un constructor sin parametros. Por eso los tres elementos se
+construyen explicitamente en la lista de inicializacion de `Juego`:
+
+```cpp
+enemigosPrueba{
+    crearEnemigo(0),
+    crearEnemigo(1),
+    crearEnemigo(2)
+}
+```
+
+Las figuras tambien se construyen con su tamaño:
+
+```cpp
+figurasEnemigosPrueba{
+    sf::RectangleShape({ANCHO_ENEMIGO, ALTO_ENEMIGO}),
+    sf::RectangleShape({ANCHO_ENEMIGO, ALTO_ENEMIGO}),
+    sf::RectangleShape({ANCHO_ENEMIGO, ALTO_ENEMIGO})
+}
+```
+
+Los temporizadores se inicializan con llaves vacias:
+
+```cpp
+tiemposReaparicion{}
+```
+
+En un `std::array<float, 3>`, esta inicializacion coloca los tres valores en
+`0.0f`.
+
+### 12.5 Recorrido de los arreglos
+
+Los arreglos se recorren con un ciclo `for`:
+
+```cpp
+for (std::size_t i = 0; i < CANTIDAD_ENEMIGOS; i++) {
+    // usar enemigosPrueba[i]
+}
+```
+
+`std::size_t` es un tipo entero sin signo utilizado para tamaños e indices de
+colecciones.
+
+El mismo tipo de recorrido se usa para:
+
+- Actualizar la posicion de cada enemigo vivo.
+- Descontar el tiempo de reaparicion de cada enemigo muerto.
+- Comparar el proyectil contra todos los enemigos.
+- Dibujar las figuras de los enemigos vivos.
+- Reiniciar los tres enemigos al presionar `R`.
+- Buscar el objetivo mas cercano para el arma.
+
+### 12.6 Como participan los arreglos en el disparo
+
+El arma no recibe el arreglo completo. `Juego` lo recorre y filtra los enemigos
+muertos:
+
+```cpp
+for (std::size_t i = 0; i < CANTIDAD_ENEMIGOS; i++) {
+    if (!enemigosPrueba[i].estaVivo()) {
+        continue;
+    }
+
+    // calcular la distancia al enemigo vivo
+}
+```
+
+`continue` salta el resto de esa repeticion y pasa al siguiente indice.
+
+Para cada enemigo vivo, `Juego` calcula la distancia al cuadrado:
+
+```cpp
+const float distanciaCuadrada =
+    diferenciaX * diferenciaX + diferenciaY * diferenciaY;
+```
+
+No hace falta obtener la raiz cuadrada para comparar cual esta mas cerca. El
+menor valor de `distanciaCuadrada` tambien representa la menor distancia real.
+
+Cuando termina el recorrido, `Juego` conserva un solo `centroObjetivo` y se lo
+entrega a `Arma::intentarDisparar()`.
+
+La division de responsabilidades queda asi:
+
+```text
+Juego recorre el arreglo y selecciona un enemigo
+                         ↓
+Arma recibe solamente la posicion del objetivo elegido
+                         ↓
+Arma valida el alcance y crea el proyectil
+```
+
+De esta manera, `Arma` puede funcionar sin conocer cuantos enemigos existen ni
+como estan almacenados.
+
 ## 13. Interaccion con Proyectil
 
 `Arma` crea un `Proyectil` con:
