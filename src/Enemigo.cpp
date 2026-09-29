@@ -78,3 +78,42 @@ void Enemigo::recibirDanio(int cantidad){ // aca calculamos el dano recibido
 bool Enemigo::estaVivo()const{ // aca verificamos si esta vivo o no el enemigo
     return vida > 0;
 }
+
+
+Enemigo crearEnemigo(TipoEnemigo tipo, float x, float y){
+    switch(tipo){
+        case RAPIDO:
+            return Enemigo(2, // aca ponemos el tipo de enemigo
+                           x, y, // posicion
+                           40.0f, 40.0f, // ancho y alto
+                           220.0f, // velocidad en px por segundo
+                           60, // vida
+                           8, // danio por contacto
+                           "Robot rapido",
+                           7, 2 // Exp y chatarra
+                           );
+
+        case RESISTENTE:
+            return Enemigo(3, // aca ponemos el tipo de enemigo
+                           x, y, // posicion
+                           72.0f, 72.0f, // ancho y alto
+                           70.0f, // velocidad en px por segundo
+                           250, // vida
+                           15, // danio por contacto
+                           "Robot resistente",
+                           12, 6 // Exp y chatarra
+                           );
+
+        case BASICO:
+        default: // si llega un tipo desconocido devolvemos el basico
+            return Enemigo(1, // aca ponemos el tipo de enemigo
+                           x, y, // posicion
+                           56.0f, 56.0f, // ancho y alto
+                           120.0f, // velocidad en px por segundo
+                           100, // vida
+                           10, // danio por contacto
+                           "Robot basico",
+                           5, 3 // Exp y chatarra
+                           );
+    }
+}

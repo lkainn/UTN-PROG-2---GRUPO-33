@@ -213,6 +213,39 @@ desde cero, 60 veces por segundo.
 de los compañeros. Se prueba con un punto fijo, y el día de la integración le
 pasan la posición real del jugador sin cambiar una línea.
 
+#### El enemigo vibraba al llegar (overshooting)
+
+Síntoma detectado en la prueba visual: el cuadrado llegaba a la bolita y en vez
+de quedarse quieto, **vibraba**.
+
+Causa: el paso por frame es fijo (`velocidad * dt` = 1.92 px a 60 FPS) y no se
+achica al acercarse. Cuando falta menos de 1.92 px, el enemigo **se pasa de
+largo**; al frame siguiente el objetivo le queda para atrás, da media vuelta, y
+se vuelve a pasar. Sesenta veces por segundo.
+
+Solución: antes de moverse, comparar el paso con lo que falta.
+
+```cpp
+float paso = velocidad * dt;
+
+if (paso >= distancia) {
+    x = objetivo.x;      // llegaria o se pasaria -> lo plantamos ahi
+    y = objetivo.y;
+} else {
+    dx /= distancia;     // camino normal
+    dy /= distancia;
+    x += dx * paso;
+    y += dy * paso;
+}
+```
+
+> **Ejemplo bobo:** si te falta medio paso para llegar a la puerta, no des un
+> paso entero y te choques. Apoyá el pie justo en la puerta.
+
+En el juego terminado casi no se va a ver, porque el enemigo va a chocar contra
+el jugador antes de llegar a su centro. Pero si el jugador se queda quieto en un
+rincón, vuelve a aparecer — así que conviene tenerlo cubierto.
+
 ---
 
 ### `obtenerPosicion()`
@@ -328,10 +361,13 @@ que pase el tiempo, o que le peguen. Nada más puede alterarlo.
 
 ## 8. Estado del módulo
 
-- [x] `Comunes.h` con las tres structs
+- [x] Structs compartidas (quedaron en `TiposCompartidos.h`, de Lucas —
+      el `Comunes.h` propio se borró para no duplicarlas)
 - [x] `Enemigo.h` — atributos y contrato
 - [x] `Enemigo.cpp` — constructor, `actualizar`, getters
-- [ ] `pruebas/prueba_enemigos.cpp` — verlo moverse en pantalla
+- [x] `pruebas/prueba_enemigos.cpp` + `compilar_pruebas.bat` — persigue,
+      recibe daño simulado con ESPACIO y muere
+- [ ] `obtenerFormaColision()` — lo necesita el `SistemaColisiones` de Lucas
 - [ ] Variantes: básico, rápido, resistente
 - [ ] Oleadas y dificultad progresiva
 - [ ] Jefe final y clase `Partida`
