@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Enemigo.h"
+#include "Jugador.h"
 #include "Proyectil.h"
 
 #include <SFML/Graphics.hpp>
@@ -12,12 +14,12 @@ public:
 
 private:
     sf::RenderWindow ventana;
-    sf::RectangleShape robotPrueba;
-    sf::RectangleShape blancoPrueba;
+    Jugador jugador;
+    Enemigo enemigoPrueba;
+    sf::RectangleShape figuraEnemigoPrueba;
     sf::RectangleShape figuraProyectilPrueba;
     Proyectil proyectilPrueba;
     sf::Clock relojFotogramas;
-    bool blancoImpactado = false;
 
     void procesarEventos();
     void actualizar();
