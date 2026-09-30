@@ -12,13 +12,19 @@
 - Proyectil: logica independiente de SFML, con velocidad por ejes en pixeles
   por segundo. La representacion grafica queda a cargo del ciclo de juego.
 - Arma: conserva sus estadisticas y controla la cadencia en ataques por segundo.
-  Configura un proyectil cuando el enfriamiento termino y el proyectil anterior
-  esta inactivo; no mueve proyectiles ni resuelve colisiones. El primer disparo
+  Configura un proyectil nuevo e inactivo cuando el enfriamiento termino;
+  no mueve proyectiles ni resuelve colisiones. El primer disparo
   queda disponible de inmediato.
 - Disparo automatico: Juego selecciona al enemigo vivo, calcula los centros y
   solicita el disparo. Arma valida el alcance y calcula una direccion
   normalizada hacia el objetivo. El proyectil comienza a moverse en el
   fotograma siguiente a su creacion.
+- Disparos simultaneos: Juego conserva los proyectiles por valor en un
+  `std::vector`, con memoria administrada automaticamente. Cada disparo se
+  actualiza e impacta al primer enemigo vivo que intersecta; se elimina al
+  impactar o salir de la ventana. La limpieza se realiza despues del recorrido
+  para no invalidar referencias. Reiniciar vacia el vector y restablece la
+  cadencia; los disparos en vuelo no bloquean nuevos disparos.
 - Enemigos de demostracion: Juego mantiene tres instancias en arreglos fijos,
   selecciona como objetivo al enemigo vivo mas cercano y administra un tiempo
   de reaparicion individual de 3 segundos. El alcance temporal del arma es de
@@ -35,6 +41,15 @@
   vector. La interfaz muestra nivel, experiencia actual y chatarra, y cada
   recoleccion genera un indicador flotante con la cantidad obtenida.
 - Clases: flexibles; se confirmaran por incremento.
+- Segunda arma de prueba: metralleta, id 2, dano 6, cadencia 8 ataques por
+  segundo, alcance temporal 2210 pixeles y nivel maximo 5. Sus proyectiles
+  viajan a 800 pixeles por segundo y miden 14 x 6 pixeles, de color naranja.
+  La pistola conserva dano 25 y cadencia 2. Cada arma mantiene y actualiza su
+  propio enfriamiento. Las teclas 1 y 2 son exclusivamente controles de prueba;
+  la adquisicion mediante progreso o mejoras se definira con el equipo.
+  R reinicia ambos enfriamientos y selecciona la pistola. Para estos dos
+  formatos temporales, la vista distingue el color por dimensiones del disparo,
+  sin depender del arma seleccionada ni modificar la logica de Proyectil.
 - Archivos binarios previstos: Jugadores.dat, Partidas.dat, Enemigos.dat,
   Armas.dat y Mejoras.dat.
 

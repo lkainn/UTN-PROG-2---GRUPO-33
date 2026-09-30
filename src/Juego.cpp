@@ -15,6 +15,12 @@
 namespace {
 constexpr float VELOCIDAD_PROYECTIL = 800.0f;
 constexpr float ALCANCE_ARMA = 2210.0f;
+constexpr float ANCHO_PROYECTIL_PISTOLA = 28.0f;
+constexpr float ALTO_PROYECTIL_PISTOLA = 14.0f;
+constexpr float ANCHO_PROYECTIL_METRALLETA = 14.0f;
+constexpr float ALTO_PROYECTIL_METRALLETA = 6.0f;
+const sf::Color COLOR_PROYECTIL_PISTOLA(255, 225, 70);
+const sf::Color COLOR_PROYECTIL_METRALLETA(255, 140, 50);
 constexpr float SEGUNDOS_REAPARICION = 3.0f;
 constexpr float SEGUNDOS_ENTRE_DANOS_CONTACTO = 0.75f;
 constexpr float DURACION_INDICADOR_DANIO = 0.8f;
@@ -97,9 +103,10 @@ Juego::Juego()
       },
       tiemposReaparicion{},
       figuraProyectilPrueba({28.0f, 14.0f}),
-      proyectilPrueba({0.0f, 0.0f}, VELOCIDAD_PROYECTIL, 0.0f,
-                      28.0f, 14.0f, 0),
+      _proyectiles{},
       armaPrueba(1, "Pistola basica", 25, 2.0f, ALCANCE_ARMA, 5),
+      _metralletaPrueba(2, "Metralleta", 6, 8.0f, ALCANCE_ARMA, 5),
+      _armaSeleccionada(TipoArmaPrueba::Pistola),
       fuenteDanioDisponible(cargarFuenteDanio(fuenteDanio)),
       indicadoresDanio{},
       recursosSuelo{},
@@ -135,6 +142,16 @@ void Juego::procesarEventos() {
             } else if (tecla->scancode == sf::Keyboard::Scancode::E) {
                 jugador.ganarExperiencia(40);
             }
+            else if (tecla->scancode == sf::Keyboard::Scancode::Num1 ||
+                     tecla->scancode == sf::Keyboard::Scancode::Numpad1)
+            {
+                seleccionarArmaPrueba(TipoArmaPrueba::Pistola);
+            }
+            else if (tecla->scancode == sf::Keyboard::Scancode::Num2 ||
+                     tecla->scancode == sf::Keyboard::Scancode::Numpad2)
+            {
+                seleccionarArmaPrueba(TipoArmaPrueba::Metralleta);
+            }
         }
     }
 }
@@ -142,13 +159,13 @@ void Juego::procesarEventos() {
 void Juego::actualizar() {
     // Limitar el salto reduce el riesgo de atravesar al enemigo si la ventana se pausa.
     const float segundos = std::min(relojFotogramas.restart().asSeconds(), 0.05f);
-    armaPrueba.actualizar(segundos);
+    actualizarArmas(segundos);
     jugador.procesarEntrada();
     jugador.actualizar();
     actualizarEnemigos(segundos);
     actualizarDanoContacto(segundos);
     actualizarIndicadoresDanio(segundos);
-    actualizarProyectil(segundos);
+    actualizarProyectiles(segundos);
     actualizarRecursos(segundos);
     actualizarDisparoAutomatico();
 }
@@ -272,41 +289,56 @@ void Juego::actualizarRecursos(float segundos) {
     }
 }
 
-void Juego::actualizarProyectil(float segundos) {
-    if (!proyectilPrueba.estaActivo()) {
-        return;
-    }
+void Juego::actualizarProyectiles(float segundos)
+{
+    const FormaColision escenario{
+        0.0f, 0.0f,
+        static_cast<float>(Configuracion::ANCHO_VENTANA),
+        static_cast<float>(Configuracion::ALTO_VENTANA)
+    };
 
-    proyectilPrueba.actualizar(segundos);
-    const Posicion posicionProyectil = proyectilPrueba.obtenerPosicion();
-    figuraProyectilPrueba.setPosition(
-        {posicionProyectil.x, posicionProyectil.y});
+    for (Proyectil& proyectil : _proyectiles)
+    {
+        if (!proyectil.estaActivo())
+        {
+            continue;
+        }
 
-    bool impacto = false;
-    for (std::size_t i = 0; i < CANTIDAD_ENEMIGOS; i++) {
-        if (enemigosPrueba[i].estaVivo() &&
-            SistemaColisiones::hayInterseccion(
-                proyectilPrueba.obtenerFormaColision(),
-                enemigosPrueba[i].obtenerFormaColision())) {
-            enemigosPrueba[i].recibirDanio(proyectilPrueba.obtenerDano());
-            proyectilPrueba.desactivar();
-            impacto = true;
-            if (!enemigosPrueba[i].estaVivo()) {
-                generarRecompensa(enemigosPrueba[i]);
-                tiemposReaparicion[i] = SEGUNDOS_REAPARICION;
+        proyectil.actualizar(segundos);
+        for (std::size_t i = 0; i < CANTIDAD_ENEMIGOS; i++)
+        {
+            if (enemigosPrueba[i].estaVivo() &&
+                SistemaColisiones::hayInterseccion(
+                    proyectil.obtenerFormaColision(),
+                    enemigosPrueba[i].obtenerFormaColision()))
+            {
+                enemigosPrueba[i].recibirDanio(proyectil.obtenerDano());
+                proyectil.desactivar();
+                if (!enemigosPrueba[i].estaVivo())
+                {
+                    generarRecompensa(enemigosPrueba[i]);
+                    tiemposReaparicion[i] = SEGUNDOS_REAPARICION;
+                }
+                break;
             }
-            break;
+        }
+
+        if (proyectil.estaActivo() &&
+            !SistemaColisiones::estaDentroDe(
+                proyectil.obtenerFormaColision(), escenario))
+        {
+            proyectil.desactivar();
         }
     }
 
-    if (!impacto &&
-        !SistemaColisiones::estaDentroDe(
-            proyectilPrueba.obtenerFormaColision(),
-            {0.0f, 0.0f,
-             static_cast<float>(Configuracion::ANCHO_VENTANA),
-             static_cast<float>(Configuracion::ALTO_VENTANA)})) {
-        proyectilPrueba.desactivar();
-    }
+    _proyectiles.erase(
+        std::remove_if(
+            _proyectiles.begin(), _proyectiles.end(),
+            [](const Proyectil& proyectil)
+            {
+                return !proyectil.estaActivo();
+            }),
+        _proyectiles.end());
 }
 
 void Juego::dibujar() {
@@ -318,8 +350,21 @@ void Juego::dibujar() {
         }
     }
     jugador.dibujar(ventana);
-    if (proyectilPrueba.estaActivo()) {
-        ventana.draw(figuraProyectilPrueba);
+    for (const Proyectil& proyectil : _proyectiles)
+    {
+        if (proyectil.estaActivo())
+        {
+            const FormaColision forma = proyectil.obtenerFormaColision();
+            figuraProyectilPrueba.setSize({forma.ancho, forma.alto});
+            figuraProyectilPrueba.setPosition({forma.x, forma.y});
+            // Los dos formatos de prueba conservan su apariencia al cambiar de arma.
+            const bool esMetralleta =
+                forma.ancho == ANCHO_PROYECTIL_METRALLETA &&
+                forma.alto == ALTO_PROYECTIL_METRALLETA;
+            figuraProyectilPrueba.setFillColor(
+                esMetralleta ? COLOR_PROYECTIL_METRALLETA : COLOR_PROYECTIL_PISTOLA);
+            ventana.draw(figuraProyectilPrueba);
+        }
     }
     dibujarIndicadoresDanio();
     dibujarIndicadoresRecurso();
@@ -401,7 +446,7 @@ void Juego::dibujarInterfaz() {
         return;
     }
 
-    sf::RectangleShape fondo({570.0f, 44.0f});
+    sf::RectangleShape fondo({850.0f, 44.0f});
     fondo.setPosition({14.0f, 14.0f});
     fondo.setFillColor(sf::Color(8, 10, 14, 190));
     fondo.setOutlineColor(sf::Color(110, 120, 135));
@@ -425,6 +470,13 @@ void Juego::dibujarInterfaz() {
     chatarra.setPosition({330.0f, 22.0f});
     chatarra.setFillColor(sf::Color(255, 190, 55));
     ventana.draw(chatarra);
+
+    sf::Text nombreArma(
+        fuenteDanio,
+        "ARMA: " + std::string(obtenerArmaSeleccionada().obtenerNombre()), 22);
+    nombreArma.setPosition({580.0f, 22.0f});
+    nombreArma.setFillColor(sf::Color(235, 235, 235));
+    ventana.draw(nombreArma);
 }
 
 void Juego::generarRecompensa(const Enemigo& enemigo) {
@@ -451,9 +503,11 @@ void Juego::generarRecompensa(const Enemigo& enemigo) {
     }
 }
 
-void Juego::actualizarDisparoAutomatico() {
-    if (!jugador.estaVivo() || proyectilPrueba.estaActivo() ||
-        !armaPrueba.puedeDisparar()) {
+void Juego::actualizarDisparoAutomatico()
+{
+    Arma& arma = obtenerArmaSeleccionada();
+    if (!jugador.estaVivo() || !arma.puedeDisparar())
+    {
         return;
     }
 
@@ -492,14 +546,36 @@ void Juego::actualizarDisparoAutomatico() {
         return;
     }
 
-    if (armaPrueba.intentarDisparar(
-            proyectilPrueba, centroJugador, centroObjetivo, VELOCIDAD_PROYECTIL,
-            figuraProyectilPrueba.getSize().x,
-            figuraProyectilPrueba.getSize().y)) {
-        const Posicion posicionProyectil = proyectilPrueba.obtenerPosicion();
-        figuraProyectilPrueba.setPosition(
-            {posicionProyectil.x, posicionProyectil.y});
+    Proyectil nuevoProyectil({0.0f, 0.0f}, 0.0f, 0.0f, 0.0f, 0.0f, 0);
+    const bool esMetralleta = _armaSeleccionada == TipoArmaPrueba::Metralleta;
+    const float ancho = esMetralleta ? ANCHO_PROYECTIL_METRALLETA : ANCHO_PROYECTIL_PISTOLA;
+    const float alto = esMetralleta ? ALTO_PROYECTIL_METRALLETA : ALTO_PROYECTIL_PISTOLA;
+    if (arma.intentarDisparar(
+            nuevoProyectil, centroJugador, centroObjetivo, VELOCIDAD_PROYECTIL,
+            ancho, alto))
+    {
+        _proyectiles.push_back(nuevoProyectil);
     }
+}
+
+void Juego::actualizarArmas(float segundos)
+{
+    armaPrueba.actualizar(segundos);
+    _metralletaPrueba.actualizar(segundos);
+}
+
+void Juego::seleccionarArmaPrueba(TipoArmaPrueba tipo)
+{
+    _armaSeleccionada = tipo;
+}
+
+Arma& Juego::obtenerArmaSeleccionada()
+{
+    if (_armaSeleccionada == TipoArmaPrueba::Metralleta)
+    {
+        return _metralletaPrueba;
+    }
+    return armaPrueba;
 }
 
 void Juego::reiniciarPrueba() {
@@ -511,13 +587,15 @@ void Juego::reiniciarPrueba() {
             TIPOS_ENEMIGOS[i]);
         tiemposReaparicion[i] = 0.0f;
     }
-    proyectilPrueba.desactivar();
+    _proyectiles.clear();
     armaPrueba.reiniciar();
+    _metralletaPrueba.reiniciar();
+    seleccionarArmaPrueba(TipoArmaPrueba::Pistola);
     indicadoresDanio.clear();
     recursosSuelo.clear();
     indicadoresRecurso.clear();
     tiempoRestanteDanoContacto = 0.0f;
     ventana.setTitle(
-        "WASD: mover | Disparo automatico | K: dano | E: experiencia");
+        "WASD: mover | PRUEBA: 1 pistola / 2 metralleta | R: reiniciar | K: dano | E: experiencia");
     relojFotogramas.restart();
 }

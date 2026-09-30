@@ -19,6 +19,12 @@ public:
 private:
     static constexpr std::size_t CANTIDAD_ENEMIGOS = 3;
 
+    enum class TipoArmaPrueba
+    {
+        Pistola,
+        Metralleta
+    };
+
     struct IndicadorDanio {
         int cantidad;
         Posicion posicion;
@@ -49,8 +55,10 @@ private:
     std::array<sf::RectangleShape, CANTIDAD_ENEMIGOS> figurasEnemigosPrueba;
     std::array<float, CANTIDAD_ENEMIGOS> tiemposReaparicion;
     sf::RectangleShape figuraProyectilPrueba;
-    Proyectil proyectilPrueba;
+    std::vector<Proyectil> _proyectiles;
     Arma armaPrueba;
+    Arma _metralletaPrueba;
+    TipoArmaPrueba _armaSeleccionada;
     sf::Font fuenteDanio;
     bool fuenteDanioDisponible;
     std::vector<IndicadorDanio> indicadoresDanio;
@@ -65,13 +73,16 @@ private:
     void actualizarDanoContacto(float segundos);
     void actualizarIndicadoresDanio(float segundos);
     void actualizarRecursos(float segundos);
-    void actualizarProyectil(float segundos);
+    void actualizarProyectiles(float segundos);
     void dibujar();
     void dibujarRecursos();
     void dibujarIndicadoresDanio();
     void dibujarIndicadoresRecurso();
     void dibujarInterfaz();
     void actualizarDisparoAutomatico();
+    void actualizarArmas(float segundos);
+    void seleccionarArmaPrueba(TipoArmaPrueba tipo);
+    Arma& obtenerArmaSeleccionada();
     void generarRecompensa(const Enemigo& enemigo);
     void reiniciarPrueba();
 };
