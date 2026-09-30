@@ -41,9 +41,21 @@ la misma copia localmente.
 Como alternativa, `compilar_debug.bat` realiza la compilacion y copia las DLL
 automaticamente usando el compilador incluido con Code::Blocks.
 
-La prueba es correcta si aparece una ventana gris de 1920 x 1080 con un
-cuadrado naranja en el centro. Se puede cerrar con Escape o con el boton de la
-ventana.
+La prueba visual temporal muestra al jugador y tres enemigos que lo persiguen.
+El arma dispara automaticamente hacia el enemigo vivo mas cercano y su alcance
+cubre la diagonal completa de la ventana. Si un enemigo muere, reaparece en su
+posicion inicial despues de 3 segundos. Cuando un enemigo toca al jugador,
+aplica dano cada 0.75 segundos y aparece un numero rojo flotante con el valor
+recibido. Al morir, deja cuadrados recolectables: celeste para experiencia y
+amarillo para chatarra. El jugador debe acercarse a 90 pixeles para recogerlos;
+la cantidad obtenida aparece brevemente junto al personaje y los totales se
+muestran en la interfaz superior. Solo existe un proyectil activo a la vez. R
+reinicia la prueba, incluida la vida del jugador, y elimina los recursos que
+quedaron en el suelo; Escape o el boton de la ventana la cierra.
+
+La clase `Arma` conserva las estadisticas del arma y controla el tiempo entre
+disparos. La clase `Proyectil` mantiene el movimiento, dano y estado de cada
+disparo.
 
 
 ## Estructura

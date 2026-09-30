@@ -32,3 +32,18 @@ bool SistemaColisiones::estaDentroDe(const FormaColision& forma,
            forma.x + forma.ancho <= limites.x + limites.ancho &&
            forma.y + forma.alto <= limites.y + limites.alto;
 }
+
+bool SistemaColisiones::estaDentroDeRadio(Posicion primera,
+                                           Posicion segunda,
+                                           float radio) {
+    if (!std::isfinite(primera.x) || !std::isfinite(primera.y) ||
+        !std::isfinite(segunda.x) || !std::isfinite(segunda.y) ||
+        !std::isfinite(radio) || radio < 0.0f) {
+        return false;
+    }
+
+    const float diferenciaX = primera.x - segunda.x;
+    const float diferenciaY = primera.y - segunda.y;
+    return diferenciaX * diferenciaX + diferenciaY * diferenciaY <=
+           radio * radio;
+}

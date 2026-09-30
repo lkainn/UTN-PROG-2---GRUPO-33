@@ -47,6 +47,7 @@
 		<Linker>
 			<Add directory="dependencias/SFML/lib" />
 		</Linker>
+		<Unit filename="include/Arma.h" />
 		<Unit filename="include/Configuracion.h" />
 		<Unit filename="include/Enemigo.h" />
 		<Unit filename="include/Juego.h" />
@@ -54,6 +55,7 @@
 		<Unit filename="include/Proyectil.h" />
 		<Unit filename="include/SistemaColisiones.h" />
 		<Unit filename="include/TiposCompartidos.h" />
+		<Unit filename="src/Arma.cpp" />
 		<Unit filename="src/Enemigo.cpp" />
 		<Unit filename="src/Juego.cpp" />
 		<Unit filename="src/Jugador.cpp" />

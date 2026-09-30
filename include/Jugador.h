@@ -27,6 +27,7 @@ public:
     void recibirDano(int cantidad);
     void ganarExperiencia(int cantidad);
     void ganarChatarra(int cantidad);
+    void reiniciar();
     void dibujar(sf::RenderWindow& ventana);
 
     Posicion getPosicion() const;

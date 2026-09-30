@@ -2,6 +2,8 @@
 
 #include "TiposCompartidos.h"
 
+//const despues del metodo es para que el metodo no pueda modificar los atributos de proyectil.
+
 class Proyectil {
 public:
     Proyectil(Posicion posicion, float velocidadX, float velocidadY,

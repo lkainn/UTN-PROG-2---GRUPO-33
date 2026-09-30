@@ -68,6 +68,14 @@ FormaColision Enemigo::obtenerFormaColision()const{
     return forma;
 }
 
+int Enemigo::obtenerDano() const {
+    return dano;
+}
+
+Recompensa Enemigo::obtenerRecompensa() const {
+    return {experienciaOtorgada, chatarraOtorgada};
+}
+
 void Enemigo::recibirDanio(int cantidad){ // aca calculamos el dano recibido
     vida = vida - cantidad;
     if(vida < 0){
@@ -77,4 +85,24 @@ void Enemigo::recibirDanio(int cantidad){ // aca calculamos el dano recibido
 
 bool Enemigo::estaVivo()const{ // aca verificamos si esta vivo o no el enemigo
     return vida > 0;
+}
+
+Enemigo crearEnemigo(TipoEnemigo tipo, float x, float y) {
+    switch (tipo) {
+        case RAPIDO:
+            return Enemigo(
+                2, x, y, 40.0f, 40.0f, 220.0f,
+                60, 8, "Robot rapido", 7, 2);
+
+        case RESISTENTE:
+            return Enemigo(
+                3, x, y, 72.0f, 72.0f, 70.0f,
+                250, 15, "Robot resistente", 12, 6);
+
+        case BASICO:
+        default:
+            return Enemigo(
+                1, x, y, 56.0f, 56.0f, 120.0f,
+                100, 10, "Robot basico", 5, 3);
+    }
 }
