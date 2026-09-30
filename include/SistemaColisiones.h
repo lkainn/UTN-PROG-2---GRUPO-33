@@ -14,11 +14,14 @@
 
 class SistemaColisiones {
 public:
-    // Dos rectangulos colisionan solo si comparten una superficie con area.
+    // dos rectangulos colisionan solo si comparten una superficie con area.
     static bool hayInterseccion(const FormaColision& primera,
                                const FormaColision& segunda);
 
 
     static bool estaDentroDe(const FormaColision& forma,
                             const FormaColision& limites);
+
+    static bool estaDentroDeRadio(Posicion primera, Posicion segunda,
+                                  float radio);
 };

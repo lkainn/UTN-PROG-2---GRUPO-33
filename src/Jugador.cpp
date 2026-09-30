@@ -87,6 +87,17 @@ void Jugador::ganarChatarra(int cantidad) {
     _chatarra += cantidad;
  }
 
+void Jugador::reiniciar() {
+    _posicion = {
+        Configuracion::ANCHO_VENTANA / 2.0f,
+        Configuracion::ALTO_VENTANA / 2.0f
+    };
+    _vida = _vidaMaxima;
+    _vivo = true;
+    _formaGrafica.setFillColor(sf::Color(50, 200, 50));
+    _formaGrafica.setPosition({_posicion.x, _posicion.y});
+}
+
 void Jugador::dibujar(sf::RenderWindow& ventana){
     ventana.draw(_formaGrafica);
 }
