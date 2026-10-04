@@ -1,5 +1,6 @@
 #include "Jugador.h"
 #include "Configuracion.h"
+#include <limits>
 
 Jugador::Jugador() {
     // Inicializa la posicion centrada
@@ -49,11 +50,19 @@ void Jugador::validarLimites() {
     if (_posicion.y + radio > Configuracion::ALTO_VENTANA) _posicion.y = Configuracion::ALTO_VENTANA - radio;
 }
 
-//Se ejecuta en cada fotograma, revisa que las coordenadas del jugador no pase los limites de la ventana y sincroniza con el grafico
-void Jugador::actualizar() {
-if (!_vivo) return;
-validarLimites();
-_formaGrafica.setPosition({ _posicion.x, _posicion.y });
+// Sincroniza el grafico; por defecto tambien conserva los limites de la ventana.
+void Jugador::actualizar(bool limitarALaVentana)
+{
+    if (!_vivo)
+    {
+        return;
+    }
+    // TEMPORAL: conservar el limite original salvo en la prueba de camara de Juego.
+    if (limitarALaVentana)
+    {
+        validarLimites();
+    }
+    _formaGrafica.setPosition({_posicion.x, _posicion.y});
 }
 
 void Jugador::recibirDano(int cantidad) {  // Se resta el dano en la variable
@@ -167,3 +176,24 @@ void Jugador::cargarEstado(int vida, int nivel, int exp, int chatarra) {  // Asi
 }
 }
 
+
+// TEMPORAL: metodos para la estacion de prueba; adaptar al modulo del responsable.
+bool Jugador::gastarChatarra(int cantidad)
+{
+    if (!_vivo || cantidad <= 0 || cantidad > _chatarra)
+    {
+        return false;
+    }
+    _chatarra -= cantidad;
+    return true;
+}
+
+void Jugador::aumentarVidaMaxima(int cantidad)
+{
+    if (_vivo && cantidad > 0 &&
+        _vidaMaxima <= std::numeric_limits<int>::max() - cantidad)
+    {
+        _vidaMaxima += cantidad;
+        _vida += cantidad;
+    }
+}

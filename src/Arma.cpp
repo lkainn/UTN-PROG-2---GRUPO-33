@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <limits>
 
 Arma::Arma(int id, const char* nombre, int dano, float velocidadAtaque,
            float alcance, int nivelMaximo)
@@ -55,13 +56,14 @@ bool Arma::intentarDisparar(Proyectil& proyectil, Posicion origen,
     };
 
     Proyectil nuevoProyectil(posicionInicial, velocidadX, velocidadY,
-                             anchoProyectil, altoProyectil, _dano);
+                             anchoProyectil, altoProyectil, obtenerDano());
+    nuevoProyectil.limitarAlcance(_alcance);
     if (!nuevoProyectil.estaActivo()) {
         return false;
     }
 
     proyectil = nuevoProyectil;
-    _tiempoRestante = 1.0f / _velocidadAtaque;
+    _tiempoRestante = 1.0f / obtenerVelocidadAtaque();
     return true;
 }
 
@@ -78,11 +80,29 @@ const char* Arma::obtenerNombre() const {
 }
 
 int Arma::obtenerDano() const {
-    return _dano;
+    const long long porcentaje = 100LL + 20LL * _nivelDano;
+    if (_dano > static_cast<long long>(std::numeric_limits<int>::max()) * 100 / porcentaje)
+    {
+        return std::numeric_limits<int>::max();
+    }
+    const long long dano = (static_cast<long long>(_dano) * porcentaje + 99) / 100;
+    return static_cast<int>(std::min(dano,
+        static_cast<long long>(std::numeric_limits<int>::max())));
 }
 
 float Arma::obtenerVelocidadAtaque() const {
-    return _velocidadAtaque;
+    return _velocidadAtaque * (1.0f + 0.15f * _nivelCadencia);
+}
+
+void Arma::configurarBonificaciones(int nivelDano, int nivelCadencia)
+{
+    const float anterior = obtenerVelocidadAtaque();
+    _nivelDano = std::max(0, nivelDano);
+    _nivelCadencia = std::max(0, nivelCadencia);
+    if (anterior > 0.0f && obtenerVelocidadAtaque() > 0.0f)
+    {
+        _tiempoRestante *= anterior / obtenerVelocidadAtaque();
+    }
 }
 
 float Arma::obtenerAlcance() const {

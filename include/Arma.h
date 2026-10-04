@@ -12,6 +12,7 @@ public:
                           Posicion objetivo, float velocidadProyectil,
                           float anchoProyectil, float altoProyectil);
     void reiniciar();
+    void configurarBonificaciones(int nivelDano, int nivelCadencia);
 
     int obtenerId() const;
     const char* obtenerNombre() const;
@@ -31,4 +32,6 @@ private:
     int _nivelActual;
     int _nivelMaximo;
     float _tiempoRestante;
+    int _nivelDano = 0;
+    int _nivelCadencia = 0;
 };

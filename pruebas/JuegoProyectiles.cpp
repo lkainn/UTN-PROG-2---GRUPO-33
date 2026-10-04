@@ -9,6 +9,8 @@
 #include <iostream>
 
 // Acceso limitado a esta prueba para comprobar el ciclo sin ampliar la API del juego.
+#include <random>
+#include "EncuentroAleatorio.h"
 #define private public
 #include "Juego.h"
 #undef private
@@ -94,11 +96,12 @@ int main()
     juego.actualizarDisparoAutomatico();
     correcto &= comprobar(juego._proyectiles.size() == 1, "disparo inmediato despues de reiniciar");
 
+    juego._metralletaAdquirida = true;
     juego.seleccionarArmaPrueba(Juego::TipoArmaPrueba::Metralleta);
     correcto &= comprobar(juego.obtenerArmaSeleccionada().obtenerId() == 2 &&
                           juego.obtenerArmaSeleccionada().obtenerDano() == 6 &&
                           juego.obtenerArmaSeleccionada().obtenerVelocidadAtaque() == 8.0f &&
-                          juego.obtenerArmaSeleccionada().obtenerAlcance() == 2210.0f,
+                          juego.obtenerArmaSeleccionada().obtenerAlcance() == 600.0f,
                           "estadisticas de metralleta y seleccion");
     juego.actualizarDisparoAutomatico();
     correcto &= comprobar(juego._proyectiles.size() == 2 &&
@@ -111,9 +114,9 @@ int main()
     juego.actualizarDisparoAutomatico();
     correcto &= comprobar(juego._proyectiles.size() == 2, "alternar no reinicia cooldown de pistola");
     juego.dibujar();
-    correcto &= comprobar(juego.figuraProyectilPrueba.getFillColor() == sf::Color(255, 140, 50) &&
-                          juego.figuraProyectilPrueba.getSize() == sf::Vector2f(14.0f, 6.0f),
-                          "disparo de metralleta sigue naranja y pequeno al elegir pistola");
+    correcto &= comprobar(juego._aspectoProyectiles.texturaDisponible(true) && juego._proyectiles.back().obtenerFormaColision().ancho == 14.0f,
+                          "metralleta conserva textura disponible y dimensiones al elegir pistola");
+    juego._metralletaAdquirida = true;
     juego.seleccionarArmaPrueba(Juego::TipoArmaPrueba::Metralleta);
     juego.actualizarArmas(0.0625f);
     juego.actualizarDisparoAutomatico();
@@ -129,9 +132,9 @@ int main()
                           juego._proyectiles.back().obtenerFormaColision().ancho == 28.0f,
                           "pistola recupera cooldown estando inactiva y conserva su formato");
     juego.dibujar();
-    correcto &= comprobar(juego.figuraProyectilPrueba.getFillColor() == sf::Color(255, 225, 70) &&
-                          juego.figuraProyectilPrueba.getSize() == sf::Vector2f(28.0f, 14.0f),
-                          "disparo de pistola conserva apariencia despues de metralleta");
+    correcto &= comprobar(juego._aspectoProyectiles.texturaDisponible(false) && juego._proyectiles.front().obtenerFormaColision().ancho == 28.0f,
+                          "pistola conserva textura disponible y dimensiones despues de metralleta");
+    juego._metralletaAdquirida = true;
     juego.seleccionarArmaPrueba(Juego::TipoArmaPrueba::Metralleta);
     juego.reiniciarPrueba();
     correcto &= comprobar(juego.obtenerArmaSeleccionada().obtenerId() == 1 &&
@@ -145,6 +148,7 @@ int main()
     juego.enemigosPrueba[0] = Enemigo(1, 100.0f, 100.0f, 56.0f, 56.0f,
                                     0.0f, 7, 10, "Prueba metralleta", 10, 5);
     juego.jugador.setPosicion({50.0f, 128.0f});
+    juego._metralletaAdquirida = true;
     juego.seleccionarArmaPrueba(Juego::TipoArmaPrueba::Metralleta);
     juego.actualizarDisparoAutomatico();
     const Posicion origenMetralleta = juego._proyectiles.front().obtenerPosicion();
@@ -158,6 +162,44 @@ int main()
     juego.actualizarProyectiles(0.075f);
     correcto &= comprobar(!juego.enemigosPrueba[0].estaVivo() && juego.recursosSuelo.size() == 2,
                           "segundo disparo mata y entrega una recompensa");
+    juego.reiniciarPrueba();
+    for (Enemigo& enemigo : juego.enemigosPrueba)
+    {
+        enemigo.recibirDanio(999);
+    }
+    for (float distancia : {599.0f, 600.0f, 601.0f})
+    {
+        juego._proyectiles.clear();
+        juego.armaPrueba.reiniciar();
+        juego.enemigosPrueba[0] = Enemigo(1, 960.0f + distancia - 28.0f,
+            512.0f, 56.0f, 56.0f, 0.0f, 100, 10, "Rango", 10, 5);
+        juego.actualizarDisparoAutomatico();
+        correcto &= comprobar(juego._proyectiles.size() == (distancia <= 600.0f ? 1u : 0u),
+                              "rango de adquisicion incluye 600 y excluye 601");
+    }
+    juego._proyectiles.clear();
+    juego.armaPrueba.reiniciar();
+    juego.enemigosPrueba[0] = Enemigo(1, 932.0f, -38.0f, 56.0f, 56.0f,
+                                    0.0f, 100, 10, "Fuera de vista", 10, 5);
+    juego.actualizarDisparoAutomatico();
+    correcto &= comprobar(juego._proyectiles.empty(),
+                          "enemigo dentro de rango pero fuera de pantalla no es objetivo");
+    juego.jugador.setPosicion({7000.0f, 4000.0f});
+    juego._escenario.actualizar(juego.jugador.getPosicion());
+    juego.enemigosPrueba[0] = Enemigo(1, 7022.0f, 3972.0f, 56.0f, 56.0f,
+                                    0.0f, 100, 10, "Vista desplazada", 10, 5);
+    juego.actualizarDisparoAutomatico();
+    correcto &= comprobar(juego._proyectiles.size() == 1,
+                          "rango y visibilidad usan coordenadas del mundo");
+    juego._proyectiles.clear();
+    juego.enemigosPrueba[0] = Enemigo(1, 7030.0f, 3990.0f, 20.0f, 20.0f,
+                                    0.0f, 10, 10, "No impactar al expirar", 10, 5);
+    juego._proyectiles.emplace_back(Posicion{7000.0f, 4000.0f},
+                                    100.0f, 0.0f, 8.0f, 4.0f, 25);
+    juego._proyectiles.back().limitarAlcance(35.0f);
+    juego.actualizarProyectiles(0.4f);
+    correcto &= comprobar(juego._proyectiles.empty() && juego.enemigosPrueba[0].estaVivo(),
+                          "proyectil agotado no aplica dano aunque termine sobre un enemigo");
     juego.ventana.close();
     if (correcto)
     {
