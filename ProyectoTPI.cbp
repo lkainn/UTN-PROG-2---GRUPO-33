@@ -48,15 +48,23 @@
 			<Add directory="dependencias/SFML/lib" />
 		</Linker>
 		<Unit filename="include/Arma.h" />
+		<Unit filename="include/AspectoProyectiles.h" />
 		<Unit filename="include/Configuracion.h" />
 		<Unit filename="include/Enemigo.h" />
+		<Unit filename="include/Escenario.h" />
+		<Unit filename="include/EstacionMejoras.h" />
+		<Unit filename="include/EncuentroAleatorio.h" />
 		<Unit filename="include/Juego.h" />
 		<Unit filename="include/Jugador.h" />
 		<Unit filename="include/Proyectil.h" />
 		<Unit filename="include/SistemaColisiones.h" />
 		<Unit filename="include/TiposCompartidos.h" />
 		<Unit filename="src/Arma.cpp" />
+		<Unit filename="src/AspectoProyectiles.cpp" />
 		<Unit filename="src/Enemigo.cpp" />
+		<Unit filename="src/Escenario.cpp" />
+		<Unit filename="src/EstacionMejoras.cpp" />
+		<Unit filename="src/EncuentroAleatorio.cpp" />
 		<Unit filename="src/Juego.cpp" />
 		<Unit filename="src/Jugador.cpp" />
 		<Unit filename="src/Proyectil.cpp" />
