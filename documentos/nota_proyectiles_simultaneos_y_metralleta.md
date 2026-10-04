@@ -1,6 +1,5 @@
 # Nota: proyectiles simultáneos y segunda arma
 
-Fecha: 30 de septiembre de 2026.
 
 Esta nota explica la implementación actual del combate para poder estudiarla,
 seguir sus métodos y defender las decisiones del código. Los fragmentos muestran

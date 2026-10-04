@@ -1,6 +1,6 @@
 # Estaciones y cofres por zonas
 
-Actualizado el 4 de octubre de 2026. Reemplaza el prototipo con temporizadores.
+Reemplaza el prototipo con temporizadores.
 
 ## Distribucion y persistencia
 
@@ -75,7 +75,7 @@ radio de interaccion, cobro unico, precios independientes y redondeo,
 cancelacion/reembolso, muerte, catalogo agotado y saturacion. Tambien pasan
 las pruebas de estaciones, proyectiles de Juego y camara y la compilacion Debug.
 
-Correccion posterior del 4 de octubre: el dibujo de cada estacion ahora usa
+Correccion de posicion: el dibujo de cada estacion ahora usa
 su posicion real del mapa. La prueba captura su pantalla en esa coordenada y
 comprueba la interaccion cercana. Un muestreo de 2500 zonas verifica el 25%
 de cofres por ubicacion; los slots ausentes no se dibujan ni permiten comprar.

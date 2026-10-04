@@ -52,7 +52,7 @@
   sin depender del arma seleccionada ni modificar la logica de Proyectil.
 - Archivos binarios previstos: Jugadores.dat, Partidas.dat, Enemigos.dat,
   Armas.dat y Mejoras.dat.
-- Estacion de mejoras (3 de octubre de 2026): modulo `EstacionMejoras.h/.cpp`,
+- Estacion de mejoras: modulo `EstacionMejoras.h/.cpp`,
   por valor en Juego, ubicado inicialmente en (1100, 540). Radio de interaccion
   100 pixeles con F. Cobra 10 de chatarra y ofrece tres opciones fijas con
   combate pausado: +20 vida maxima/actual, +20% dano base o +15% cadencia base.
@@ -66,7 +66,7 @@
   binarios nuevos. Grafico provisional con formas de SFML. Los metodos
   gastarChatarra y aumentarVidaMaxima son TEMPORALES autorizados; adaptar al
   responsable de Jugador y a su catalogo definitivo.
-- Rango de disparo (3 de octubre de 2026): pistola y metralleta buscan
+- Rango de disparo: pistola y metralleta buscan
   enemigos vivos cuyo centro sea visible y este a no mas de 600 pixeles.
   Cada proyectil de Arma recibe ese alcance como distancia maxima recorrida,
   medida desde su origen y no desde la posicion actual del jugador. Al
@@ -74,13 +74,13 @@
   lo elimina. El alcance sigue siendo un atributo de cada arma, independiente
   del tamano de ventana y de la camara. Proyectiles construidos directamente
   sin un limite explicito conservan el comportamiento anterior.
-- Primer entorno visual (3 de octubre de 2026): deposito de chatarra al aire
+- Primer entorno visual: deposito de chatarra al aire
   libre. La clase `Escenario` administra la textura del suelo por valor y se
   dibuja antes de las entidades. El fondo completo generado mide 1672 x 941,
   se ajusta a la resolucion logica sin suavizado y no agrega obstaculos.
   Carga desde la raiz o desde `bin/Debug`; si falta la imagen, usa el fondo
   liso anterior. Los futuros objetos se disenaran como sprites separados.
-- Camara de seguimiento (3 de octubre de 2026): Escenario conserva una vista
+- Camara de seguimiento: Escenario conserva una vista
   de 1920 x 1080 centrada en el jugador y dibuja cuatro copias del suelo
   ancladas al mundo para cubrirla, incluso en coordenadas negativas. No hay
   borde fisico del escenario en este prototipo. Juego usa esa vista para
@@ -96,10 +96,10 @@
 La primera version abre una ventana, procesa el evento de cierre, permite salir
 con Escape y dibuja un rectangulo de prueba. Todavia no contiene jugabilidad.
 
-## 4 de octubre de 2026: encuentros aleatorios
+## Encuentros aleatorios
 Estaciones y cofres aparecen temporalmente alrededor del jugador. F interactua con el mas cercano. Cofres: costo de prueba 15, recompensa automatica por arma, 15% metralleta si no esta adquirida y bonos simples limitados. Se conserva el precio creciente de estacion y las adquisiciones al reiniciar. Detalles y pruebas en documentos/encuentros_aleatorios.md. Ricochet, proyectiles extra y encadenamiento quedan pendientes con desventajas obligatorias.
 
-## 4 de octubre de 2026: distribucion por zonas
+## Distribucion por zonas
 Reemplaza las apariciones temporales: zonas generadas una sola vez, estaciones de una compra que quedan apagadas y cofres abiertos persistentes. Cada tipo aumenta su propio precio 60% tras una compra efectiva; cofres parten de 15. R conserva estados y precios y devuelve la compra pendiente sin consumir. Ver documentos/encuentros_aleatorios.md.
 
 ## Correccion de estaciones y densidad de cofres
