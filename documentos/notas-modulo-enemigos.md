@@ -61,7 +61,11 @@ El `Enemigo` **no sabe nada de relojes ni de SFML**: solo recibe el número.
 
 ---
 
-## 3. `Comunes.h` — el vocabulario entre módulos
+## 3. `TiposCompartidos.h` — el vocabulario entre módulos
+
+> Nota: al principio este archivo se llamaba `Comunes.h` y lo había hecho yo.
+> El equipo decidió quedarse con el `TiposCompartidos.h` de Lucas, que es
+> idéntico, porque ya tenía dos clases incluyéndolo. El contenido es el mismo.
 
 Tres structs que usan los tres módulos del grupo para hablar entre sí:
 
@@ -348,27 +352,245 @@ que pase el tiempo, o que le peguen. Nada más puede alterarlo.
 
 ---
 
-## 7. Reglas de trabajo del grupo
+## 7. Las variantes: `enum TipoEnemigo` y `crearEnemigo()`
 
-- Archivos **míos**: `Enemigo`, `Partida`, `ArchivoPartidas`, y las pruebas.
+Las tres variantes **no son tres clases** ni usan herencia: son la misma clase
+`Enemigo` con distintos valores en el constructor.
+
+```cpp
+enum TipoEnemigo { BASICO, RAPIDO, RESISTENTE };
+Enemigo crearEnemigo(TipoEnemigo tipo, float x, float y);   // funcion libre
+```
+
+| Variante | id | Tamaño | Vida | Velocidad | Daño | Exp/Chatarra |
+|---|---|---|---|---|---|---|
+| Básico | 1 | 56×56 | 100 | 120 px/s | 10 | 5 / 3 |
+| Rápido | 2 | 40×40 | 60 | 220 px/s | 8 | 7 / 2 |
+| Resistente | 3 | 72×72 | 250 | 70 px/s | 15 | 12 / 6 |
+
+**Por qué un `enum` y no un `std::string`:** si escribís `RAPDIO` no compila, te
+avisa al toque. Con un string, `"rapdio"` compila perfecto y falla en ejecución.
+
+> **Ejemplo bobo:** son los talles de una remera: S, M o L. No existe el talle
+> "banana". El `enum` le dice al compilador cuáles son los valores válidos.
+
+**Por qué `crearEnemigo()` va fuera de la clase:** un método necesita un objeto
+que ya exista para poder llamarse, y acá justamente el objeto todavía no existe
+— lo estamos creando. Se llama sin objeto: `crearEnemigo(RAPIDO, 100, 100)`.
+
+**Por qué el `default` junto al `case BASICO`:** toda función que devuelve algo
+tiene que devolver algo por *todos* los caminos. Sin `default`, el compilador
+avisa que podría no retornar nada.
+
+**El `idEnemigo` 1, 2, 3 es la fila del catálogo** en `Enemigos.dat`. Hoy los
+valores están escritos en el `switch`; cuando se implemente la persistencia, ese
+`switch` se reemplaza por "leé la fila N del archivo" y nada más cambia.
+
+---
+
+## 8. Muchos enemigos: el `vector`
+
+El patrón de cada fotograma, **en este orden**:
+
+```
+1. generar los que correspondan
+2. actualizar todos          (un for con &)
+3. limpiar los muertos       (pasada APARTE)
+4. dibujar los que quedan
+```
+
+### El `&` del `for` no es opcional
+
+```cpp
+for (Enemigo& e : enemigos)   // bien: trabaja sobre el original
+for (Enemigo e : enemigos)    // mal: trabaja sobre una copia
+```
+
+Sin el `&`, C++ entrega una **copia** de cada enemigo, se mueve la copia y el
+original queda quieto. No da error ni warning: simplemente no pasa nada en
+pantalla. Es el error que más tiempo hace perder con vectores.
+
+### Nunca borrar mientras se recorre
+
+La tentación:
+
+```cpp
+for (size_t i = 0; i < v.size(); i++) {
+    if (!v[i].estaVivo()) { v.erase(v.begin() + i); }   // MAL
+}
+```
+
+Al borrar, los de atrás se corren un lugar, pero el `i++` avanza igual: **te
+salteás uno por cada borrado**. Comprobado con 5 enemigos, matando los 3
+primeros — la respuesta correcta es 2 y este código deja 3.
+
+Y con el `for (Enemigo& e : v)` es peor: borrar ahí adentro corrompe el
+recorrido. Es *undefined behavior*: a veces anda de casualidad y te oculta el
+bug hasta la demo.
+
+### La forma correcta
+
+```cpp
+enemigos.erase(
+    std::remove_if(enemigos.begin(), enemigos.end(),
+                   [](const Enemigo& e) { return !e.estaVivo(); }),
+    enemigos.end());
+```
+
+`remove_if` **no borra**: empuja los que cumplen la condición hacia el final y
+devuelve dónde arranca la "zona de basura". El `erase` corta desde ahí. Necesita
+`#include <algorithm>`.
+
+Eso `[](const Enemigo& e) { ... }` es una **lambda**: una función anónima escrita
+en el lugar donde se usa, para no declarar una función aparte solo para esto.
+
+---
+
+## 9. `GestorOleadas`: la dificultad por tiempo
+
+Encapsula todo el módulo detrás de una clase. Quien la usa solo llama a
+`actualizar()` una vez por fotograma y recorre `obtenerEnemigos()` para dibujar.
+No tiene que acordarse del orden de las fases, ni del `&`, ni del `erase`.
+
+```cpp
+void actualizar(Posicion posicionJugador, float dt);  // genera, mueve, limpia
+const std::vector<Enemigo>& obtenerEnemigos() const;
+void reiniciar();
+float tiempoDePartida() const;
+int oleadaActual() const;
+std::size_t maximoVivosActual() const;
+```
+
+### Aparecen en un anillo, no en los bordes
+
+Al principio pensé "desde los bordes de la pantalla", pero con la cámara que
+agregó Lucas el mapa es más grande que la ventana: los bordes de la pantalla ya
+no son los bordes del mundo.
+
+La solución del género es un **anillo alrededor del jugador**: ángulo al azar, a
+700 px de distancia.
+
+```cpp
+x = jugador.x + cos(angulo) * 700;
+y = jugador.y + sin(angulo) * 700;
+```
+
+`cos` y `sin` convierten un ángulo en una dirección — es la operación inversa a
+la de `actualizar()`, donde de una dirección sacábamos la distancia. Ángulo 0 es
+a la derecha, 90° arriba, 180° a la izquierda.
+
+Así aparecen rodeando al jugador, siempre fuera de la vista, nunca encima.
+
+### Las oleadas son tramos de tiempo, no grupos
+
+La oleada 1 son los primeros 30 segundos, la 2 los siguientes 30, y así. **No
+hay que matarlos a todos para pasar a la siguiente.**
+
+El motivo: con oleadas cerradas, un enemigo escondido en una esquina del mapa
+traba la partida para siempre. Por tiempo eso no puede pasar. Es también lo que
+pidió Lucas.
+
+### Todo sale de una sola fórmula
+
+`progresoDificultad()` va de 0 a 1 en cinco minutos y después se queda en 1. El
+intervalo y el techo se **interpolan** con ese número:
+
+```cpp
+intervalo = 1.5 - (1.5 - 0.4) * progreso;      // baja de 1.5s a 0.4s
+tope      = 15  + (60  - 15 ) * progreso;      // sube de 15 a 60
+```
+
+Interpolar es "dame el valor intermedio": con progreso 0.5, el intervalo queda
+justo en el medio entre 1.5 y 0.4.
+
+Simulación de seis minutos, sin matar a nadie:
+
+```
+ min | oleada | intervalo | tope | vivos | basicos rapidos resist
+   0 |      1 |      1.50 |   15 |     0 |       0       0      0
+   1 |      3 |      1.28 |   24 |    23 |      23       0      0
+   2 |      5 |      1.06 |   33 |    32 |      26       6      0
+   3 |      7 |      0.84 |   42 |    41 |      29      12      0
+   4 |      9 |      0.62 |   51 |    50 |      33      15      2
+   5 |     11 |      0.40 |   60 |    60 |      36      20      4
+```
+
+### El techo de vivos es lo más importante
+
+Sin ese límite el vector crece sin parar y a los pocos minutos el juego se
+arrastra: cada fotograma hay que mover y dibujar a todos. Es un `if` antes de
+generar.
+
+Detalle: el temporizador corre igual aunque el techo esté lleno; lo que se
+descarta es esa aparición puntual.
+
+### Las variantes se habilitan con el tiempo
+
+| Desde | Qué aparece |
+|---|---|
+| segundo 0 | básico |
+| segundo 60 | + rápido |
+| segundo 180 | + resistente |
+
+Entre las habilitadas se sortea con la misma probabilidad. Así la dificultad no
+es solo "más enemigos": cambia el tipo de amenaza.
+
+### La semilla del azar está fija
+
+`generador(20261005u)` — a propósito, mientras probamos: si algo sale mal, se
+reproduce igual. Para que cada partida sea distinta se cambia por
+`std::random_device{}()`, una línea.
+
+### La corrección del centro vive acá
+
+El gestor le pasa a cada enemigo un objetivo ya corregido:
+
+```cpp
+objetivo.x = posicionJugador.x - forma.ancho / 2.0f;
+```
+
+Sin esto el enemigo persigue con su esquina superior izquierda y queda siempre
+corrido medio cuerpo. Lucas hace esta misma cuenta en `Juego.cpp`; cuando se
+integre el gestor, él la borra porque ya está resuelta adentro.
+
+---
+
+## 10. Reglas de trabajo del grupo
+
+- Archivos **míos**: `Enemigo`, `GestorOleadas`, `Partida`, `ArchivoPartidas`,
+  y las pruebas.
 - Archivos que **no toco sin avisar**: `Juego.*`, `main.cpp`, `Configuracion.h`,
-  `Comunes.h`.
+  `TiposCompartidos.h`.
 - `ProyectoTPI.cbp` lo van a modificar los tres al agregar archivos → es el
   conflicto más probable del TPI. Es XML, se resuelve a mano leyéndolo.
 - Cada paso tiene que **compilar y demostrarse** antes de empezar el siguiente.
 
 ---
 
-## 8. Estado del módulo
+## 11. Estado del módulo
 
 - [x] Structs compartidas (quedaron en `TiposCompartidos.h`, de Lucas —
       el `Comunes.h` propio se borró para no duplicarlas)
-- [x] `Enemigo.h` — atributos y contrato
-- [x] `Enemigo.cpp` — constructor, `actualizar`, getters
-- [x] `pruebas/prueba_enemigos.cpp` + `compilar_pruebas.bat` — persigue,
-      recibe daño simulado con ESPACIO y muere
-- [ ] `obtenerFormaColision()` — lo necesita el `SistemaColisiones` de Lucas
-- [ ] Variantes: básico, rápido, resistente
-- [ ] Oleadas y dificultad progresiva
-- [ ] Jefe final y clase `Partida`
+- [x] `Enemigo.h` / `.cpp` — atributos y contrato completo
+- [x] `obtenerFormaColision()` — probado contra el `SistemaColisiones` de Lucas
+- [x] `obtenerDano()` y `obtenerRecompensa()` (los agregó Lucas al integrar)
+- [x] `obtenerIdEnemigo()` — para que quien dibuja sepa la variante
+- [x] Variantes: básico, rápido, resistente (`enum` + `crearEnemigo`)
+- [x] `GestorOleadas` — aparición en anillo, techo de vivos, limpieza
+- [x] Dificultad progresiva por tiempo y numeración de oleadas
+- [x] `pruebas/prueba_enemigos.cpp` + `compilar_pruebas.bat`
+- [ ] Jefe final
+- [ ] Clase `Partida` (resultado, duración, puntaje, victoria/derrota)
 - [ ] `Enemigos.dat` y `Partidas.dat`
+- [ ] Integrar `GestorOleadas` en `Juego` (lo hace Lucas; reemplaza su
+      `std::array` fijo de 9 enemigos con posiciones hardcodeadas)
+
+### Pendiente para avisar al grupo
+
+- Bug en `src/Juego.cpp`: `TIPOS_ENEMIGOS` tiene 3 elementos pero se indexa
+  con el índice del enemigo, que va de 0 a 8. Para los índices 3 a 8 lee
+  fuera del arreglo — `std::array::operator[]` no verifica rango, así que no
+  avisa: devuelve lo que haya en memoria.
+- Pedir que integren mergeando la rama en vez de copiar el código a mano: se
+  pierden los comentarios y en el historial de git el módulo aparece como
+  escrito por otra persona.

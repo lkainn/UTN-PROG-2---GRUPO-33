@@ -52,6 +52,7 @@
 		<Unit filename="include/Configuracion.h" />
 		<Unit filename="include/Enemigo.h" />
 		<Unit filename="include/Escenario.h" />
+		<Unit filename="include/GestorOleadas.h" />
 		<Unit filename="include/EstacionMejoras.h" />
 		<Unit filename="include/EncuentroAleatorio.h" />
 		<Unit filename="include/Juego.h" />
@@ -63,6 +64,7 @@
 		<Unit filename="src/AspectoProyectiles.cpp" />
 		<Unit filename="src/Enemigo.cpp" />
 		<Unit filename="src/Escenario.cpp" />
+		<Unit filename="src/GestorOleadas.cpp" />
 		<Unit filename="src/EstacionMejoras.cpp" />
 		<Unit filename="src/EncuentroAleatorio.cpp" />
 		<Unit filename="src/Juego.cpp" />
