@@ -20,7 +20,7 @@ if not exist "obj\Debug" mkdir "obj\Debug"
 
 "%COMPILADOR%" -std=c++17 -Wall -Wextra ^
     -Iinclude -I"%SFML%\include" ^
-    src\main.cpp src\Juego.cpp src\Jugador.cpp src\Enemigo.cpp src\Proyectil.cpp src\SistemaColisiones.cpp ^
+    src\main.cpp src\Juego.cpp src\AspectoProyectiles.cpp src\Escenario.cpp src\EstacionMejoras.cpp src\EncuentroAleatorio.cpp src\Jugador.cpp src\Enemigo.cpp src\Arma.cpp src\Proyectil.cpp src\SistemaColisiones.cpp ^
     -L"%SFML%\lib" ^
     -lsfml-graphics-d -lsfml-window-d -lsfml-system-d ^
     -o bin\Debug\ProyectoTPI.exe

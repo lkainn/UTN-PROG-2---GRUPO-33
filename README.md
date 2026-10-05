@@ -41,9 +41,60 @@ la misma copia localmente.
 Como alternativa, `compilar_debug.bat` realiza la compilacion y copia las DLL
 automaticamente usando el compilador incluido con Code::Blocks.
 
-La prueba es correcta si aparece una ventana gris de 1920 x 1080 con un
-cuadrado naranja en el centro. Se puede cerrar con Escape o con el boton de la
-ventana.
+La prueba visual temporal muestra al jugador y tres enemigos que lo persiguen.
+El suelo representa un deposito de chatarra al aire libre. `Escenario.h` y
+`Escenario.cpp` administran su textura, guardada en `recursos/entorno`.
+La camara sigue al jugador y el suelo se repite en coordenadas de mundo, por
+lo que se puede caminar mas alla de los bordes originales, incluso hacia
+coordenadas negativas. La interfaz permanece fija en pantalla. R tambien
+restablece la camara. La textura completa se reutiliza como mosaico; no es
+todavia un mapa de obstaculos ni una generacion de terrenos diferentes.
+El arma dispara automaticamente hacia el enemigo vivo visible mas cercano,
+dentro de un rango de 600 pixeles. Las balas tambien desaparecen al recorrer
+esa distancia maxima. Si un enemigo muere, reaparece en su
+posicion inicial despues de 3 segundos. Cuando un enemigo toca al jugador,
+aplica dano cada 0.75 segundos y aparece un numero rojo flotante con el valor
+recibido. Al morir, deja cuadrados recolectables: celeste para experiencia y
+amarillo para chatarra. El jugador debe acercarse a 90 pixeles para recogerlos;
+la cantidad obtenida aparece brevemente junto al personaje y los totales se
+muestran en la interfaz superior junto con el nombre del arma seleccionada.
+Solo para pruebas, 1 selecciona la pistola (25 de dano, 2 disparos por segundo)
+y 2 selecciona la metralleta (6 de dano, 8 disparos por segundo). Tambien se
+pueden usar las teclas del teclado numerico. La adquisicion definitiva del arma
+queda pendiente de integrar con el sistema de progreso. Ambas conservan su
+propio enfriamiento al alternar. El arma dispara aunque haya
+otros proyectiles en vuelo; cada disparo impacta una sola vez y se elimina al
+impactar o salir de la ventana. R
+reinicia la prueba, incluida la vida del jugador, y elimina los recursos que
+quedaron en el suelo, limpia los disparos y vuelve a seleccionar la pistola;
+Escape o el boton de la ventana la cierra. Los proyectiles de pistola son
+amarillos de 28 x 14 pixeles y los de metralleta naranjas de 14 x 6; ambos
+viajan a 800 pixeles por segundo y conservan su dano y formato al cambiar de arma.
+
+Una estacion de mejoras se encuentra cerca del punto inicial, a la
+derecha del jugador. Acercarse y pulsar F gasta chatarra y pausa el combate:
+1 elige +20 de vida maxima y actual, 2 elige +20% del dano base de ambas armas
+y 3 elige +15% de la velocidad base de ataque de ambas armas. Cada compra
+permite una sola eleccion. El costo empieza en 10 y aumenta 60% redondeando
+hacia arriba: 10, 16, 26, 42, 68... R devuelve una compra pendiente; las
+compras ya confirmadas, sus bonificaciones y el costo se conservan como el
+nivel y la chatarra del reinicio actual. La estacion usa un dibujo provisional
+de terminal mecanica. `EstacionMejoras.h/.cpp` aislan su logica para adaptarla
+al catalogo definitivo del responsable. Los dos metodos nuevos de Jugador
+estan autorizados para pruebas y marcados TEMPORAL.
+
+La clase `Arma` conserva las estadisticas del arma y controla el tiempo entre
+disparos. La clase `Proyectil` mantiene el movimiento, dano y estado de cada
+disparo.
+
+Para verificar los disparos simultaneos, la cadencia, las colisiones, las
+recompensas y el reinicio, ejecutar `pruebas/probar_juego_proyectiles.bat`
+desde la carpeta del proyecto. Esta prueba abre brevemente una ventana de SFML.
+
+`pruebas/probar_camara.bat` comprueba seguimiento, cobertura del suelo en
+coordenadas negativas, anclaje al mundo, proyectiles, reaparicion y reinicio.
+`pruebas/probar_estacion_mejoras.bat` comprueba el cobro unico, precio creciente,
+pausa, las tres opciones, el reembolso y la conservacion de compras confirmadas.
 
 
 ## Estructura
@@ -55,3 +106,6 @@ ventana.
 - `documentos`: decisiones y documentacion del equipo.
 - `pruebas`: pruebas aisladas de los modulos.
 - `dependencias`: bibliotecas locales no incluidas en el repositorio.
+
+### Estaciones y cofres por zonas (prototipo)
+Los objetos se distribuyen al generar cada zona y conservan su estado. F interactua con el mas cercano. Cada estacion permite una compra y queda apagada; cada cofre entrega una recompensa automatica y queda abierto. Los precios de estaciones y cofres aumentan 60% con contadores independientes. Cofres: 15, 24, 39, 63... Ver documentos/encuentros_aleatorios.md. Pruebas: pruebas/probar_encuentros.bat.

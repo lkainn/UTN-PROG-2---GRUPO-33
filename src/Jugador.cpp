@@ -1,5 +1,6 @@
 #include "Jugador.h"
 #include "Configuracion.h"
+#include <limits>
 
 Jugador::Jugador() {
     // Inicializa la posicion centrada
@@ -49,15 +50,23 @@ void Jugador::validarLimites() {
     if (_posicion.y + radio > Configuracion::ALTO_VENTANA) _posicion.y = Configuracion::ALTO_VENTANA - radio;
 }
 
-//Se ejecuta en cada fotograma, revisa que las coordenadas del jugador no pase los limites de la ventana y sincroniza con el grafico
-void Jugador::actualizar() {
-if (!_vivo) return;
-validarLimites();
-_formaGrafica.setPosition({ _posicion.x, _posicion.y });
+// Sincroniza el grafico; por defecto tambien conserva los limites de la ventana.
+void Jugador::actualizar(bool limitarALaVentana)
+{
+    if (!_vivo)
+    {
+        return;
+    }
+    // TEMPORAL: conservar el limite original salvo en la prueba de camara de Juego.
+    if (limitarALaVentana)
+    {
+        validarLimites();
+    }
+    _formaGrafica.setPosition({_posicion.x, _posicion.y});
 }
 
 void Jugador::recibirDano(int cantidad) {  // Se resta el dano en la variable
-    if (!_vivo) return;
+    if (!_vivo || cantidad <= 0) return;  // Se valida si el jugador esta muerto o si la cantidad recibida no es valida
     _vida -= cantidad;
     if (_vida <= 0) {
     _vida = 0;
@@ -77,15 +86,26 @@ void Jugador::verificarSubidaNivel() {
 }
 
 void Jugador::ganarExperiencia(int cantidad) {
-    if (!_vivo) return;
+    if (!_vivo || cantidad <= 0) return;  // Se valida si el jugador esta muerto o si la cantidad recibida no es valida
     _experiencia += cantidad;
     verificarSubidaNivel();
 }
 
 void Jugador::ganarChatarra(int cantidad) {
-    if (!_vivo) return;
+    if (!_vivo || cantidad <=0) return;
     _chatarra += cantidad;
  }
+
+void Jugador::reiniciar() {
+    _posicion = {
+        Configuracion::ANCHO_VENTANA / 2.0f,
+        Configuracion::ALTO_VENTANA / 2.0f
+    };
+    _vida = _vidaMaxima;
+    _vivo = true;
+    _formaGrafica.setFillColor(sf::Color(50, 200, 50));
+    _formaGrafica.setPosition({_posicion.x, _posicion.y});
+}
 
 void Jugador::dibujar(sf::RenderWindow& ventana){
     ventana.draw(_formaGrafica);
@@ -110,9 +130,70 @@ void Jugador::setPosicion(Posicion pos) {
     _formaGrafica.setPosition({ _posicion.x, _posicion.y });
 }
 
-void Jugador::cargarEstado(int vida, int nivel, int exp, int chatarra) {
-    _vida = vida;
-    _nivel = nivel;
-    _experiencia = exp;
-    _chatarra = chatarra;
+void Jugador::cargarEstado(int vida, int nivel, int exp, int chatarra) {  // Asigna la vida, nivel, experiencia y chatarra al personaje. Al cambiar de nivel cambian los topes del juego, se recalcula la salud maxima, la meta de experiencia, si esta vivo y su color
+    // Guardar los datos básicos y evitar valores absurdos
+    if (nivel < 1) {
+        _nivel = 1;
+    }
+        else {
+            _nivel = nivel;
+}
+
+    if (exp < 0) {
+        _experiencia = 0;
+}
+        else {
+            _experiencia = exp;
+}
+    if (chatarra < 0) {
+        _chatarra = 0;
+}
+        else {
+            _chatarra = chatarra;
+}
+// Recalcular los topes del personaje segun su nivel (+20 de vida max y +50 de exp por nivel)
+    _vidaMaxima = 100 + (_nivel - 1) * 20;
+    _experienciaSiguienteNivel = 100 + (_nivel - 1) * 50;
+
+// Asegurar que la vida actual no supere la nueva vida maxima ni sea menor a 0
+    if (vida > _vidaMaxima) {
+        _vida = _vidaMaxima;
+}
+        else if (vida < 0) {
+            _vida = 0;
+}
+        else {
+            _vida = vida;
+}
+// Marcar si el personaje esta vivo o muerto y actualizar su color
+    if (_vida > 0) {
+        _vivo = true;
+        _formaGrafica.setFillColor(sf::Color(50, 200, 50)); // Verde si esta vivo
+}
+        else {
+            _vivo = false;
+            _formaGrafica.setFillColor(sf::Color(100, 100, 100)); // Gris si esta muerto
+}
+}
+
+
+// TEMPORAL: metodos para la estacion de prueba; adaptar al modulo del responsable.
+bool Jugador::gastarChatarra(int cantidad)
+{
+    if (!_vivo || cantidad <= 0 || cantidad > _chatarra)
+    {
+        return false;
+    }
+    _chatarra -= cantidad;
+    return true;
+}
+
+void Jugador::aumentarVidaMaxima(int cantidad)
+{
+    if (_vivo && cantidad > 0 &&
+        _vidaMaxima <= std::numeric_limits<int>::max() - cantidad)
+    {
+        _vidaMaxima += cantidad;
+        _vida += cantidad;
+    }
 }

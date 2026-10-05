@@ -1,6 +1,5 @@
 # Integracion de jugador, enemigo, proyectil y colisiones
 
-Fecha de referencia: 24 de septiembre de 2026.
 
 ## Objetivo
 

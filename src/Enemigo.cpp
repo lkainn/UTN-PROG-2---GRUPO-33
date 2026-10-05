@@ -68,6 +68,14 @@ FormaColision Enemigo::obtenerFormaColision()const{
     return forma;
 }
 
+int Enemigo::obtenerDano() const {
+    return dano;
+}
+
+Recompensa Enemigo::obtenerRecompensa() const {
+    return {experienciaOtorgada, chatarraOtorgada};
+}
+
 void Enemigo::recibirDanio(int cantidad){ // aca calculamos el dano recibido
     vida = vida - cantidad;
     if(vida < 0){

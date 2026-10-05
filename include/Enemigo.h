@@ -2,11 +2,10 @@
 
 #include "TiposCompartidos.h"
 
-enum TipoEnemigo{ // Diferentes tipos de enemigo
+enum TipoEnemigo { // Diferentes tipos de enemigo
     BASICO,
     RAPIDO,
     RESISTENTE
-
 };
 
 class Enemigo {
@@ -25,6 +24,8 @@ class Enemigo {
         void actualizar(Posicion objetivo, float dt);
         Posicion obtenerPosicion() const;
         FormaColision obtenerFormaColision() const;
+        int obtenerDano() const;
+        Recompensa obtenerRecompensa() const;
         void recibirDanio(int cantidad);
         bool estaVivo() const;
 };

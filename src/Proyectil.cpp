@@ -1,6 +1,12 @@
 #include "Proyectil.h"
 
 #include <cmath>
+#include <algorithm>
+
+float Proyectil::obtenerAngulo() const
+{
+    return std::atan2(_velocidadY, _velocidadX);
+}
 
 Proyectil::Proyectil(Posicion posicion, float velocidadX, float velocidadY,
                      float ancho, float alto, int dano)
@@ -20,9 +26,34 @@ void Proyectil::actualizar(float segundos) {
         return;
     }
 
-    //distancia = velocidad * tiempo
-    _posicion.x += _velocidadX * segundos;
-    _posicion.y += _velocidadY * segundos;
+    const float paso = std::hypot(_velocidadX, _velocidadY) * segundos;
+    if (!std::isfinite(paso))
+    {
+        desactivar();
+        return;
+    }
+    if (paso <= 0.0f)
+    {
+        return;
+    }
+    const float fraccion = std::min(1.0f, _distanciaRestante / paso);
+    _posicion.x += _velocidadX * segundos * fraccion;
+    _posicion.y += _velocidadY * segundos * fraccion;
+    _distanciaRestante = std::max(0.0f, _distanciaRestante - paso);
+    if (_distanciaRestante <= 0.0f)
+    {
+        desactivar();
+    }
+}
+
+void Proyectil::limitarAlcance(float alcance)
+{
+    if (!std::isfinite(alcance) || alcance <= 0.0f)
+    {
+        desactivar();
+        return;
+    }
+    _distanciaRestante = alcance;
 }
 
 void Proyectil::desactivar() {
