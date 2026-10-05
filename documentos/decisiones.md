@@ -28,7 +28,23 @@
 - Enemigos de demostracion: Juego mantiene tres instancias en arreglos fijos,
   selecciona como objetivo al enemigo vivo mas cercano y administra un tiempo
   de reaparicion individual de 3 segundos. El alcance inicial de 2210 pixeles
-  fue reemplazado por el limite de 600 pixeles descrito mas abajo.
+  fue reemplazado por el limite de 600 pixeles descrito mas abajo. Este
+  esquema es temporal: lo reemplaza `GestorOleadas`, descrito mas abajo.
+- Variantes de enemigo: `enum TipoEnemigo` con BASICO, RAPIDO y RESISTENTE, y
+  la funcion libre `crearEnemigo(tipo, x, y)`. No son tres clases ni usan
+  herencia: es la misma clase `Enemigo` con distintos valores de constructor.
+  Los id 1, 2 y 3 corresponden a las filas previstas de Enemigos.dat, de modo
+  que al implementar la persistencia solo cambia el origen de los valores.
+  `obtenerIdEnemigo()` permite que quien dibuja elija el color de la variante
+  sin conocer la clase por dentro.
+- Oleadas y dificultad: modulo `GestorOleadas.h/.cpp`, por valor en Juego.
+  Encapsula la aparicion, el movimiento y la limpieza de los enemigos de la
+  partida; Juego solo invoca `actualizar(posicionJugador, segundos)` una vez
+  por fotograma y recorre `obtenerEnemigos()` para dibujar y para colisionar.
+  La dificultad depende del tiempo transcurrido, no de la cantidad eliminada.
+  No depende de SFML. Reemplaza los arreglos fijos, las posiciones iniciales
+  hardcodeadas y los tiempos de reaparicion individuales, y absorbe la
+  correccion que alinea el centro del enemigo con el centro del jugador.
 - Dano por contacto: un enemigo que intersecta al jugador aplica su dano y
   activa 0.75 segundos de invulnerabilidad global. Cada impacto genera un
   indicador numerico flotante durante 0.8 segundos. Los indicadores se guardan
@@ -104,6 +120,40 @@ Reemplaza las apariciones temporales: zonas generadas una sola vez, estaciones d
 
 ## Correccion de estaciones y densidad de cofres
 El dibujo de estaciones usa objeto.posicion, igual que la busqueda de interaccion. Cada slot de cofre tiene un 25% de aparicion (antes 100%); se conserva el mapa persistente. Verificado con captura de render antes de presentar el fotograma, interaccion, muestreo de spawn y regresion de estaciones.
+
+## Oleadas y dificultad progresiva
+Las oleadas son tramos de 30 segundos y solo sirven para numerarlas: no hace
+falta eliminar a todos los enemigos para avanzar. Se decidio asi porque con
+oleadas cerradas un enemigo alejado del jugador puede trabar la partida de
+forma indefinida. La dificultad es continua: no salta al cambiar de oleada.
+
+Los enemigos aparecen en un anillo de 700 pixeles alrededor del jugador, en un
+angulo al azar. No se usan los bordes de la ventana porque la camara de
+seguimiento hizo que dejaran de coincidir con los limites del mundo.
+
+Una sola curva gobierna el balance: avanza de 0 a 1 entre el inicio de la
+partida y el minuto 5, y despues se mantiene. El intervalo de aparicion y el
+techo de enemigos vivos se interpolan linealmente con ese valor.
+
+| Parametro | Al empezar | Minuto 5 en adelante |
+|---|---|---|
+| Intervalo de aparicion | 1.5 s | 0.4 s |
+| Maximo de enemigos vivos | 15 | 60 |
+
+El techo de vivos es obligatorio: sin el, el vector crece sin limite y cada
+fotograma debe mover y dibujar a todos. El temporizador de aparicion corre
+igual cuando el techo esta lleno; lo que se descarta es esa aparicion puntual.
+
+Las variantes se habilitan por tiempo y entre las disponibles se sortea con
+igual probabilidad: BASICO desde el segundo 0, RAPIDO desde el 60 y RESISTENTE
+desde el 180. De este modo la dificultad no consiste solo en mas enemigos.
+
+La semilla del generador aleatorio es fija mientras se prueba el modulo, para
+que las partidas sean reproducibles. Se reemplaza por `std::random_device` una
+vez definido el comportamiento final.
+
+Pendiente: el jefe final, los contadores de la partida y los archivos
+Enemigos.dat y Partidas.dat. Ver documentos/guia_oleadas_enemigos.md.
 
 ## Texturas de proyectiles
 Pistola y metralleta utilizan PNG transparentes generados con imagegen en recursos/proyectiles. AspectoProyectiles carga, selecciona la region visible y orienta los dibujos; respaldo con rectangulos si faltan archivos. Ver recursos/proyectiles/diseno.md para dimensiones, limites y pruebas.
