@@ -20,7 +20,8 @@ constexpr float ANCHO_PROYECTIL_PISTOLA = 28.0f;
 constexpr float ALTO_PROYECTIL_PISTOLA = 14.0f;
 constexpr float ANCHO_PROYECTIL_METRALLETA = 14.0f;
 constexpr float ALTO_PROYECTIL_METRALLETA = 6.0f;
-constexpr float SEGUNDOS_REAPARICION = 3.0f;
+constexpr float DISPERSION_ESCOPETA = 0.6981317f;
+constexpr float PASO_ENERGIA = 8.0f;
 constexpr float SEGUNDOS_ENTRE_DANOS_CONTACTO = 0.75f;
 constexpr float DURACION_INDICADOR_DANIO = 0.8f;
 constexpr float VELOCIDAD_INDICADOR_DANIO = 45.0f;
@@ -29,39 +30,32 @@ constexpr float TAMANIO_RECURSO = 16.0f;
 constexpr float SEPARACION_RECURSOS = 12.0f;
 constexpr float DURACION_INDICADOR_RECURSO = 1.0f;
 constexpr float VELOCIDAD_INDICADOR_RECURSO = 40.0f;
-constexpr std::array<Posicion, 9> POSICIONES_INICIALES_ENEMIGOS{{
-    {1440.0f, 200.0f},
-    {1440.0f, 512.0f},
-    {1440.0f, 824.0f},
-    {1240.0f, 200.0f},
-    {1240.0f, 512.0f},
-    {1240.0f, 824.0f},
-    {1340.0f, 200.0f},
-    {1340.0f, 512.0f},
-    {1340.0f, 824.0f}
-}};
-constexpr std::array<TipoEnemigo, 3> TIPOS_ENEMIGOS{{
-    TipoEnemigo::BASICO,
-    TipoEnemigo::RAPIDO,
-    TipoEnemigo::RESISTENTE
-}};
-
-Enemigo crearEnemigoParaIndice(std::size_t indice, Posicion desplazamiento = {0.0f, 0.0f}) {
-    const Posicion posicion = POSICIONES_INICIALES_ENEMIGOS[indice];
-    return crearEnemigo(
-        TIPOS_ENEMIGOS[indice], posicion.x + desplazamiento.x,
-        posicion.y + desplazamiento.y);
+sf::Color obtenerColorRareza(RarezaMejora rareza)
+{
+    switch (rareza)
+    {
+        case RarezaMejora::Rara:
+            return sf::Color(85, 170, 255);
+        case RarezaMejora::Epica:
+            return sf::Color(195, 105, 255);
+        case RarezaMejora::Legendaria:
+            return sf::Color(255, 190, 55);
+        case RarezaMejora::Comun:
+        default:
+            return sf::Color(205, 215, 225);
+    }
 }
-
-sf::Color obtenerColorEnemigo(TipoEnemigo tipo) {
-    switch (tipo) {
-        case TipoEnemigo::RAPIDO:
+sf::Color obtenerColorEnemigo(int idEnemigo)
+{
+    switch (idEnemigo)
+    {
+        case 2:
             return sf::Color(235, 190, 60);
 
-        case TipoEnemigo::RESISTENTE:
+        case 3:
             return sf::Color(130, 115, 220);
 
-        case TipoEnemigo::BASICO:
+        case 1:
         default:
             return sf::Color(205, 70, 70);
     }
@@ -69,11 +63,12 @@ sf::Color obtenerColorEnemigo(TipoEnemigo tipo) {
 
 void configurarFiguraEnemigo(
         sf::RectangleShape& figura, const Enemigo& enemigo,
-        TipoEnemigo tipo) {
+        int idEnemigo)
+{
     const FormaColision forma = enemigo.obtenerFormaColision();
     figura.setSize({forma.ancho, forma.alto});
     figura.setPosition({forma.x, forma.y});
-    figura.setFillColor(obtenerColorEnemigo(tipo));
+    figura.setFillColor(obtenerColorEnemigo(idEnemigo));
 }
 
 bool cargarFuenteDanio(sf::Font& fuente) {
@@ -98,33 +93,13 @@ Juego::Juego()
           sf::VideoMode({Configuracion::ANCHO_VENTANA, Configuracion::ALTO_VENTANA}),
           "WASD: mover | Disparo automatico | K: dano | E: experiencia"),
       _escenario{},
-      enemigosPrueba{
-          crearEnemigoParaIndice(0),
-          crearEnemigoParaIndice(1),
-          crearEnemigoParaIndice(2),
-          crearEnemigoParaIndice(3),
-          crearEnemigoParaIndice(4),
-          crearEnemigoParaIndice(5),
-          crearEnemigoParaIndice(6),
-          crearEnemigoParaIndice(7),
-          crearEnemigoParaIndice(8)
-      },
-      figurasEnemigosPrueba{
-          sf::RectangleShape({0.0f, 0.0f}),
-          sf::RectangleShape({0.0f, 0.0f}),
-          sf::RectangleShape({0.0f, 0.0f}),
-          sf::RectangleShape({0.0f, 0.0f}),
-          sf::RectangleShape({0.0f, 0.0f}),
-          sf::RectangleShape({0.0f, 0.0f}),
-          sf::RectangleShape({0.0f, 0.0f}),
-          sf::RectangleShape({0.0f, 0.0f}),
-          sf::RectangleShape({0.0f, 0.0f})
-      },
-      tiemposReaparicion{},
+      _gestorOleadas{},
       _aspectoProyectiles{},
       _proyectiles{},
       armaPrueba(1, "Pistola basica", 25, 2.0f, ALCANCE_ARMA, 5),
       _metralletaPrueba(2, "Metralleta", 6, 8.0f, ALCANCE_ARMA, 5),
+      _escopetaPrueba(3, "Escopeta", 12, 0.8f, 300.0f, 5, 5, DISPERSION_ESCOPETA),
+      _canonEnergiaPrueba(4, "Canon de energia", 60, 0.5f, 800.0f, 5, 1, 0.0f, 3),
       _armaSeleccionada(TipoArmaPrueba::Pistola),
       fuenteDanioDisponible(cargarFuenteDanio(fuenteDanio)),
       indicadoresDanio{},
@@ -153,11 +128,31 @@ void Juego::procesarEventos() {
 
         if (const auto* tecla = evento->getIf<sf::Event::KeyPressed>()) {
             if (tecla->scancode == sf::Keyboard::Scancode::Escape) {
-                ventana.close();
+                if (_estacionMejoras.menuAbierto())
+                {
+                    cancelarCompraEstacion();
+                }
+                else
+                {
+                    ventana.close();
+                }
             } else if (tecla->scancode == sf::Keyboard::Scancode::R) {
                 reiniciarPrueba();
             } else if (_estacionMejoras.menuAbierto()) {
-                if (tecla->scancode == sf::Keyboard::Scancode::Num1 ||
+                if (_opcionReemplazo < 3)
+                {
+                    if (tecla->scancode == sf::Keyboard::Scancode::Num1 ||
+                        tecla->scancode == sf::Keyboard::Scancode::Numpad1)
+                    {
+                        confirmarReemplazoPistola();
+                    }
+                    else if (tecla->scancode == sf::Keyboard::Scancode::Num2 ||
+                             tecla->scancode == sf::Keyboard::Scancode::Numpad2)
+                    {
+                        _opcionReemplazo = 3;
+                    }
+                }
+                else if (tecla->scancode == sf::Keyboard::Scancode::Num1 ||
                     tecla->scancode == sf::Keyboard::Scancode::Numpad1)
                 {
                     elegirMejoraEstacion(0);
@@ -182,12 +177,12 @@ void Juego::procesarEventos() {
             else if (tecla->scancode == sf::Keyboard::Scancode::Num1 ||
                      tecla->scancode == sf::Keyboard::Scancode::Numpad1)
             {
-                seleccionarArmaPrueba(TipoArmaPrueba::Pistola);
+                seleccionarSlotArma(0);
             }
             else if (tecla->scancode == sf::Keyboard::Scancode::Num2 ||
                      tecla->scancode == sf::Keyboard::Scancode::Numpad2)
             {
-                seleccionarArmaPrueba(TipoArmaPrueba::Metralleta);
+                seleccionarSlotArma(1);
             }
         }
     }
@@ -213,41 +208,39 @@ void Juego::actualizar() {
     actualizarDisparoAutomatico();
 }
 
-void Juego::actualizarEnemigos(float segundos) {
-    for (std::size_t i = 0; i < CANTIDAD_ENEMIGOS; i++) {
-        if (!enemigosPrueba[i].estaVivo()) {
-            tiemposReaparicion[i] =
-                std::max(0.0f, tiemposReaparicion[i] - segundos);
-            if (tiemposReaparicion[i] <= 0.0f) {
-                const Posicion posicionJugador = jugador.getPosicion();
-                Posicion desplazamiento{0.0f, 0.0f};
-                if (std::isfinite(posicionJugador.x) && std::isfinite(posicionJugador.y))
-                {
-                    desplazamiento = {
-                        posicionJugador.x - Configuracion::ANCHO_VENTANA / 2.0f,
-                        posicionJugador.y - Configuracion::ALTO_VENTANA / 2.0f
-                    };
-                }
-                enemigosPrueba[i] = crearEnemigoParaIndice(i, desplazamiento);
-                configurarFiguraEnemigo(
-                    figurasEnemigosPrueba[i], enemigosPrueba[i],
-                    TIPOS_ENEMIGOS[i]);
+void Juego::actualizarEnemigos(float segundos)
+{
+    if (jugador.estaVivo())
+    {
+        sincronizarIdentificadoresEnemigos();
+        const auto& enemigos = _gestorOleadas.obtenerEnemigos();
+        std::size_t vivos = 0;
+        // GestorOleadas agrega al final y conserva el orden al quitar muertos.
+        for (std::size_t indice = 0; indice < enemigos.size(); ++indice)
+        {
+            if (enemigos[indice].estaVivo())
+            {
+                _identificadoresEnemigos[vivos] = _identificadoresEnemigos[indice];
+                ++vivos;
             }
-            continue;
         }
+        _identificadoresEnemigos.resize(vivos);
+        _gestorOleadas.actualizar(jugador.getPosicion(), segundos);
+        sincronizarIdentificadoresEnemigos();
+    }
+}
 
-        const Posicion posicionJugador = jugador.getPosicion();
-        const FormaColision formaEnemigo =
-            enemigosPrueba[i].obtenerFormaColision();
-        const Posicion objetivoEnemigo{
-            posicionJugador.x - formaEnemigo.ancho / 2.0f,
-            posicionJugador.y - formaEnemigo.alto / 2.0f
-        };
-        enemigosPrueba[i].actualizar(objetivoEnemigo, segundos);
-
-        const Posicion posicionEnemigo = enemigosPrueba[i].obtenerPosicion();
-        figurasEnemigosPrueba[i].setPosition(
-            {posicionEnemigo.x, posicionEnemigo.y});
+void Juego::sincronizarIdentificadoresEnemigos()
+{
+    const std::size_t cantidad = _gestorOleadas.cantidadEnemigos();
+    if (_identificadoresEnemigos.size() > cantidad)
+    {
+        _identificadoresEnemigos.resize(cantidad);
+    }
+    while (_identificadoresEnemigos.size() < cantidad)
+    {
+        _identificadoresEnemigos.push_back(_siguienteIdEnemigo);
+        ++_siguienteIdEnemigo;
     }
 }
 
@@ -260,15 +253,16 @@ void Juego::actualizarDanoContacto(float segundos) {
     }
 
     const FormaColision formaJugador = jugador.getFormaColision();
-    for (std::size_t i = 0; i < CANTIDAD_ENEMIGOS; i++) {
-        if (!enemigosPrueba[i].estaVivo() ||
+    for (const Enemigo& enemigo : _gestorOleadas.obtenerEnemigos())
+    {
+        if (!enemigo.estaVivo() ||
             !SistemaColisiones::hayInterseccion(
-                formaJugador, enemigosPrueba[i].obtenerFormaColision())) {
+                formaJugador, enemigo.obtenerFormaColision())) {
             continue;
         }
 
         const int vidaAnterior = jugador.getVida();
-        jugador.recibirDano(enemigosPrueba[i].obtenerDano());
+        jugador.recibirDano(enemigo.obtenerDano());
         const int danoRecibido = vidaAnterior - jugador.getVida();
         if (danoRecibido > 0) {
             indicadoresDanio.push_back({
@@ -343,68 +337,83 @@ void Juego::actualizarRecursos(float segundos) {
 
 void Juego::actualizarProyectiles(float segundos)
 {
+    if (!std::isfinite(segundos) || segundos <= 0.0f)
+    {
+        return;
+    }
+    sincronizarIdentificadoresEnemigos();
     const FormaColision escenario = _escenario.obtenerAreaVisible();
-
+    auto& enemigos = _gestorOleadas.obtenerEnemigos();
     for (Proyectil& proyectil : _proyectiles)
     {
-        if (!proyectil.estaActivo())
+        float tiempoRestante = segundos;
+        while (proyectil.estaActivo() && tiempoRestante > 0.0f)
         {
-            continue;
-        }
-
-        proyectil.actualizar(segundos);
-        if (!proyectil.estaActivo())
-        {
-            continue;
-        }
-        for (std::size_t i = 0; i < CANTIDAD_ENEMIGOS; i++)
-        {
-            if (enemigosPrueba[i].estaVivo() &&
-                SistemaColisiones::hayInterseccion(
-                    proyectil.obtenerFormaColision(),
-                    enemigosPrueba[i].obtenerFormaColision()))
+            float paso = tiempoRestante;
+            if (proyectil.obtenerIdArma() == 4 && proyectil.obtenerVelocidad() > 0.0f)
             {
-                enemigosPrueba[i].recibirDanio(proyectil.obtenerDano());
-                proyectil.desactivar();
-                if (!enemigosPrueba[i].estaVivo())
-                {
-                    generarRecompensa(enemigosPrueba[i]);
-                    tiemposReaparicion[i] = SEGUNDOS_REAPARICION;
-                }
+                paso = std::min(paso, PASO_ENERGIA / proyectil.obtenerVelocidad());
+            }
+            proyectil.actualizar(paso);
+            tiempoRestante -= paso;
+            if (!proyectil.estaActivo())
+            {
                 break;
             }
-        }
-
-        if (proyectil.estaActivo() &&
-            !SistemaColisiones::estaDentroDe(
-                proyectil.obtenerFormaColision(), escenario))
-        {
-            proyectil.desactivar();
+            for (std::size_t indice = 0; indice < enemigos.size(); ++indice)
+            {
+                Enemigo& enemigo = enemigos[indice];
+                if (enemigo.estaVivo() &&
+                    SistemaColisiones::hayInterseccion(
+                        proyectil.obtenerFormaColision(), enemigo.obtenerFormaColision()) &&
+                    proyectil.registrarImpacto(_identificadoresEnemigos[indice]))
+                {
+                    enemigo.recibirDanio(proyectil.obtenerDano());
+                    if (!enemigo.estaVivo())
+                    {
+                        generarRecompensa(enemigo);
+                    }
+                    if (!proyectil.estaActivo())
+                    {
+                        break;
+                    }
+                }
+            }
+            if (proyectil.estaActivo() &&
+                !SistemaColisiones::estaDentroDe(proyectil.obtenerFormaColision(), escenario))
+            {
+                proyectil.desactivar();
+            }
         }
     }
-
     _proyectiles.erase(
-        std::remove_if(
-            _proyectiles.begin(), _proyectiles.end(),
+        std::remove_if(_proyectiles.begin(), _proyectiles.end(),
             [](const Proyectil& proyectil)
             {
                 return !proyectil.estaActivo();
             }),
         _proyectiles.end());
 }
-
 void Juego::dibujar() {
     ventana.setView(_escenario.obtenerVista());
     ventana.clear(sf::Color(28, 31, 36));
     _escenario.dibujar(ventana);
     dibujarEncuentros();
     dibujarRecursos();
-    for (std::size_t i = 0; i < CANTIDAD_ENEMIGOS; i++) {
-        if (enemigosPrueba[i].estaVivo()) {
-            ventana.draw(figurasEnemigosPrueba[i]);
+    for (const Enemigo& enemigo : _gestorOleadas.obtenerEnemigos())
+    {
+        if (enemigo.estaVivo()) {
+            sf::RectangleShape figura;
+            configurarFiguraEnemigo(figura, enemigo, enemigo.obtenerIdEnemigo());
+            ventana.draw(figura);
         }
     }
     jugador.dibujar(ventana);
+    const FormaColision formaJugador = jugador.getFormaColision();
+    _aspectoArmas.dibujar(ventana,
+        {formaJugador.x + formaJugador.ancho / 2.0f,
+         formaJugador.y + formaJugador.alto / 2.0f},
+        _anguloArma, obtenerArmaSeleccionada().obtenerId());
     for (const Proyectil& proyectil : _proyectiles)
     {
         _aspectoProyectiles.dibujar(ventana, proyectil);
@@ -491,7 +500,7 @@ void Juego::dibujarInterfaz() {
         return;
     }
 
-    sf::RectangleShape fondo({850.0f, 44.0f});
+    sf::RectangleShape fondo({1250.0f, 44.0f});
     fondo.setPosition({14.0f, 14.0f});
     fondo.setFillColor(sf::Color(8, 10, 14, 190));
     fondo.setOutlineColor(sf::Color(110, 120, 135));
@@ -522,10 +531,28 @@ void Juego::dibujarInterfaz() {
     nombreArma.setPosition({580.0f, 22.0f});
     nombreArma.setFillColor(sf::Color(235, 235, 235));
     ventana.draw(nombreArma);
+    sf::Text oleada(
+        fuenteDanio, "OLEADA: " + std::to_string(_gestorOleadas.oleadaActual()) +
+        " | TIEMPO: " + std::to_string(static_cast<int>(_gestorOleadas.tiempoDePartida())) +
+        " s", 22);
+    oleada.setPosition({900.0f, 22.0f});
+    ventana.draw(oleada);
+    std::string slots = "1: " + std::string(InventarioArmas::obtenerNombreArma(_inventarioArmas.obtenerIdSlot(0))) +
+        (_inventarioArmas.obtenerIdSlot(0) == 1 ? " (reemplazable)" : " (fija)") +
+        " | 2: " + InventarioArmas::obtenerNombreArma(_inventarioArmas.obtenerIdSlot(1));
+    if (_inventarioArmas.obtenerIdSlot(1) != 0)
+    {
+        slots += " (fija)";
+    }
+    sf::Text inventario(fuenteDanio, slots, 20);
+    inventario.setPosition({26.0f, 60.0f});
+    inventario.setOutlineThickness(2.0f);
+    inventario.setOutlineColor(sf::Color::Black);
+    ventana.draw(inventario);
     if (_tiempoMensajeCofre > 0.0f)
     {
         sf::Text mensaje(fuenteDanio, _mensajeCofre, 26);
-        mensaje.setPosition({26.0f, 80.0f});
+        mensaje.setPosition({26.0f, 92.0f});
         mensaje.setFillColor(sf::Color(255, 215, 90));
         mensaje.setOutlineThickness(2.0f);
         mensaje.setOutlineColor(sf::Color::Black);
@@ -564,8 +591,7 @@ void Juego::interactuarEncuentro()
 }
 bool Juego::hayRecompensaCofre() const
 {
-    const std::size_t indice = _armaSeleccionada == TipoArmaPrueba::Metralleta ? 1 : 0;
-    return !_metralletaAdquirida || _danoCofres[indice] < 4 || _cadenciaCofres[indice] < 4;
+    return jugador.getVidaMaxima() <= std::numeric_limits<int>::max() - 20;
 }
 
 void Juego::intentarAbrirCofre()
@@ -578,38 +604,25 @@ void Juego::intentarAbrirCofre()
     {
         return;
     }
-    const std::size_t indice = _armaSeleccionada == TipoArmaPrueba::Metralleta ? 1 : 0;
-    const bool danoDisponible = _danoCofres[indice] < 4;
-    const bool cadenciaDisponible = _cadenciaCofres[indice] < 4;
-    const bool armaNueva = !_metralletaAdquirida &&
-        ((!danoDisponible && !cadenciaDisponible) ||
-         std::uniform_int_distribution<int>(0, 99)(_generador) < 15);
     if (!jugador.gastarChatarra(_costoCofre))
     {
         return;
     }
-    if (armaNueva)
+    const long long metaExperiencia = 100LL + (jugador.getNivel() - 1LL) * 50;
+    const bool experienciaDisponible = jugador.getNivel() >= 1 &&
+        jugador.getNivel() < (std::numeric_limits<int>::max() - 100) / 50 &&
+        jugador.getExperiencia() < metaExperiencia &&
+        jugador.getExperiencia() <= std::numeric_limits<int>::max() - 40;
+    if (experienciaDisponible && std::uniform_int_distribution<int>(0, 1)(_generador) == 0)
     {
-        _metralletaAdquirida = true;
-        seleccionarArmaPrueba(TipoArmaPrueba::Metralleta);
-        _mensajeCofre = "COFRE: Metralleta adquirida y equipada";
+        jugador.ganarExperiencia(40);
+        _mensajeCofre = "COFRE: +40 experiencia para el personaje";
     }
     else
     {
-        const bool dano = danoDisponible && (!cadenciaDisponible ||
-            std::uniform_int_distribution<int>(0, 1)(_generador) == 0);
-        if (dano)
-        {
-            ++_danoCofres[indice];
-        }
-        else
-        {
-            ++_cadenciaCofres[indice];
-        }
-        _mensajeCofre = "COFRE: " + std::string(obtenerArmaSeleccionada().obtenerNombre()) +
-            (dano ? " +20% dano base" : " +15% cadencia base");
+        jugador.aumentarVidaMaxima(20);
+        _mensajeCofre = "COFRE: Blindaje +20 vida maxima y actual";
     }
-    aplicarBonificacionesArmas();
     cofre->usado = true;
     const long long siguienteCosto = (static_cast<long long>(_costoCofre) * 8 + 4) / 5;
     _costoCofre = static_cast<int>(std::min(siguienteCosto,
@@ -620,17 +633,13 @@ void Juego::intentarAbrirCofre()
 
 void Juego::aplicarBonificacionesArmas()
 {
-    const auto sumar = [](int general, int local)
+    const std::array<Arma*, 4> armas{{&armaPrueba, &_metralletaPrueba,
+        &_escopetaPrueba, &_canonEnergiaPrueba}};
+    for (Arma* arma : armas)
     {
-        return static_cast<int>(std::min(static_cast<long long>(general) + local,
-            static_cast<long long>(std::numeric_limits<int>::max())));
-    };
-    armaPrueba.configurarBonificaciones(
-        sumar(_estacionMejoras.obtenerNivelDano(), _danoCofres[0]),
-        sumar(_estacionMejoras.obtenerNivelCadencia(), _cadenciaCofres[0]));
-    _metralletaPrueba.configurarBonificaciones(
-        sumar(_estacionMejoras.obtenerNivelDano(), _danoCofres[1]),
-        sumar(_estacionMejoras.obtenerNivelCadencia(), _cadenciaCofres[1]));
+        const BonificacionesArma bonos = _inventarioArmas.obtenerBonificaciones(arma->obtenerId());
+        arma->configurarMejoras(bonos.porcentajeDano, bonos.porcentajeCadencia, bonos.especiales);
+    }
 }
 
 void Juego::dibujarEncuentros()
@@ -734,7 +743,7 @@ void Juego::generarRecompensa(const Enemigo& enemigo) {
 void Juego::actualizarDisparoAutomatico()
 {
     Arma& arma = obtenerArmaSeleccionada();
-    if (!jugador.estaVivo() || !arma.puedeDisparar() || _estacionMejoras.menuAbierto())
+    if (!jugador.estaVivo() || _estacionMejoras.menuAbierto())
     {
         return;
     }
@@ -745,17 +754,18 @@ void Juego::actualizarDisparoAutomatico()
         formaJugador.y + formaJugador.alto / 2.0f
     };
 
-    int indiceObjetivo = -1;
+    bool hayObjetivo = false;
     float distanciaMinima = std::numeric_limits<float>::max();
     const FormaColision areaVisible = _escenario.obtenerAreaVisible();
     Posicion centroObjetivo{0.0f, 0.0f};
-    for (std::size_t i = 0; i < CANTIDAD_ENEMIGOS; i++) {
-        if (!enemigosPrueba[i].estaVivo()) {
+    for (const Enemigo& enemigo : _gestorOleadas.obtenerEnemigos())
+    {
+        if (!enemigo.estaVivo()) {
             continue;
         }
 
         const FormaColision formaEnemigo =
-            enemigosPrueba[i].obtenerFormaColision();
+            enemigo.obtenerFormaColision();
         const Posicion centroEnemigo{
             formaEnemigo.x + formaEnemigo.ancho / 2.0f,
             formaEnemigo.y + formaEnemigo.alto / 2.0f
@@ -775,80 +785,113 @@ void Juego::actualizarDisparoAutomatico()
         }
         if (distanciaCuadrada < distanciaMinima) {
             distanciaMinima = distanciaCuadrada;
-            indiceObjetivo = static_cast<int>(i);
+            hayObjetivo = true;
             centroObjetivo = centroEnemigo;
         }
     }
 
-    if (indiceObjetivo < 0) {
+    if (!hayObjetivo) {
         return;
     }
 
-    Proyectil nuevoProyectil({0.0f, 0.0f}, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-    const bool esMetralleta = _armaSeleccionada == TipoArmaPrueba::Metralleta;
-    const float ancho = esMetralleta ? ANCHO_PROYECTIL_METRALLETA : ANCHO_PROYECTIL_PISTOLA;
-    const float alto = esMetralleta ? ALTO_PROYECTIL_METRALLETA : ALTO_PROYECTIL_PISTOLA;
-    if (arma.intentarDisparar(
-            nuevoProyectil, centroJugador, centroObjetivo, VELOCIDAD_PROYECTIL,
-            ancho, alto))
+    const float diferenciaX = centroObjetivo.x - centroJugador.x;
+    const float diferenciaY = centroObjetivo.y - centroJugador.y;
+    if (diferenciaX != 0.0f || diferenciaY != 0.0f)
     {
-        _proyectiles.push_back(nuevoProyectil);
+        _anguloArma = std::atan2(diferenciaY, diferenciaX);
     }
+    if (!arma.puedeDisparar())
+    {
+        return;
+    }
+
+    const bool esMetralleta = _armaSeleccionada == TipoArmaPrueba::Metralleta;
+    float ancho = esMetralleta ? ANCHO_PROYECTIL_METRALLETA : ANCHO_PROYECTIL_PISTOLA;
+    float alto = esMetralleta ? ALTO_PROYECTIL_METRALLETA : ALTO_PROYECTIL_PISTOLA;
+    float velocidad = VELOCIDAD_PROYECTIL;
+    if (_armaSeleccionada == TipoArmaPrueba::Escopeta)
+    {
+        ancho = 8.0f;
+        alto = 8.0f;
+        velocidad = 650.0f;
+    }
+    else if (_armaSeleccionada == TipoArmaPrueba::CanonEnergia)
+    {
+        ancho = 40.0f;
+        alto = 10.0f;
+        velocidad = 1000.0f;
+    }
+    arma.intentarDispararRafaga(_proyectiles, centroJugador, centroObjetivo,
+                              velocidad, ancho, alto);
 }
 
 void Juego::actualizarArmas(float segundos)
 {
     armaPrueba.actualizar(segundos);
     _metralletaPrueba.actualizar(segundos);
+    _escopetaPrueba.actualizar(segundos);
+    _canonEnergiaPrueba.actualizar(segundos);
 }
 
 void Juego::seleccionarArmaPrueba(TipoArmaPrueba tipo)
 {
-    if (tipo == TipoArmaPrueba::Metralleta && !_metralletaAdquirida)
+    if (!_inventarioArmas.poseeArma(static_cast<int>(tipo) + 1))
     {
         return;
     }
     _armaSeleccionada = tipo;
 }
 
+void Juego::seleccionarSlotArma(std::size_t slot)
+{
+    const int idArma = _inventarioArmas.obtenerIdSlot(slot);
+    if (idArma != 0)
+    {
+        seleccionarArmaPrueba(static_cast<TipoArmaPrueba>(idArma - 1));
+    }
+}
+
 Arma& Juego::obtenerArmaSeleccionada()
 {
-    if (_armaSeleccionada == TipoArmaPrueba::Metralleta)
+    switch (_armaSeleccionada)
     {
-        return _metralletaPrueba;
+        case TipoArmaPrueba::Metralleta:
+            return _metralletaPrueba;
+        case TipoArmaPrueba::Escopeta:
+            return _escopetaPrueba;
+        case TipoArmaPrueba::CanonEnergia:
+            return _canonEnergiaPrueba;
+        case TipoArmaPrueba::Pistola:
+        default:
+            return armaPrueba;
     }
-    return armaPrueba;
 }
 
 void Juego::reiniciarPrueba() {
-    if (_estacionMejoras.menuAbierto())
-    {
-        jugador.ganarChatarra(_estacionMejoras.obtenerCosto());
-        _estacionMejoras.cancelarCompra();
-    }
+    cancelarCompraEstacion();
     jugador.reiniciar();
     _estacionSeleccionada = nullptr;
+    _opcionReemplazo = 3;
     _encuentros.generarAlrededor(jugador.getPosicion());
     _mensajeCofre.clear();
     _tiempoMensajeCofre = 0.0f;
     _escenario.actualizar(jugador.getPosicion());
-    for (std::size_t i = 0; i < CANTIDAD_ENEMIGOS; i++) {
-        enemigosPrueba[i] = crearEnemigoParaIndice(i);
-        configurarFiguraEnemigo(
-            figurasEnemigosPrueba[i], enemigosPrueba[i],
-            TIPOS_ENEMIGOS[i]);
-        tiemposReaparicion[i] = 0.0f;
-    }
+    _gestorOleadas.reiniciar();
+    _identificadoresEnemigos.clear();
+    _siguienteIdEnemigo = 1;
     _proyectiles.clear();
     armaPrueba.reiniciar();
     _metralletaPrueba.reiniciar();
-    seleccionarArmaPrueba(TipoArmaPrueba::Pistola);
+    _escopetaPrueba.reiniciar();
+    _canonEnergiaPrueba.reiniciar();
+    seleccionarSlotArma(0);
+    _anguloArma = 0.0f;
     indicadoresDanio.clear();
     recursosSuelo.clear();
     indicadoresRecurso.clear();
     tiempoRestanteDanoContacto = 0.0f;
     ventana.setTitle(
-        "WASD: mover | F: estacion/cofre | 1/2: armas adquiridas | R: reiniciar | K: dano | E: experiencia");
+        "WASD: mover | F: estacion/cofre | 1/2: slots de armas | R: reiniciar prueba");
     relojFotogramas.restart();
 }
 
@@ -864,29 +907,76 @@ void Juego::intentarComprarMejora()
         return;
     }
     _estacionMejoras.establecerPosicion(estacion->posicion);
-    if (jugador.gastarChatarra(_estacionMejoras.obtenerCosto()))
+    if (_estacionMejoras.puedeComprar(jugador.getPosicion(), jugador.getChatarra()) &&
+        jugador.gastarChatarra(_estacionMejoras.obtenerCosto()))
     {
+        _estacionMejoras.abrirMenu(_inventarioArmas, _generador);
+        if (!_estacionMejoras.menuAbierto())
+        {
+            jugador.ganarChatarra(_estacionMejoras.obtenerCosto());
+            return;
+        }
         _estacionSeleccionada = estacion;
-        _estacionMejoras.abrirMenu();
-        ventana.setTitle("MEJORA PAGADA | 1: vida | 2: dano | 3: cadencia | R: devolver pago y reiniciar");
+        _opcionReemplazo = 3;
+        ventana.setTitle("ESTACION: 1/2/3 elegir oferta | Escape: cancelar y devolver pago");
     }
 }
 void Juego::elegirMejoraEstacion(std::size_t indice)
 {
-    MejoraBasica elegida{};
     if (_estacionSeleccionada == nullptr || _estacionSeleccionada->usado ||
-        !jugador.estaVivo() || !_estacionMejoras.confirmarEleccion(indice, elegida))
+        !jugador.estaVivo() || !_estacionMejoras.menuAbierto() || indice >= 3 ||
+        _opcionReemplazo < 3)
     {
         return;
     }
-    if (elegida == MejoraBasica::Vida)
+    const OfertaArma oferta = _estacionMejoras.obtenerOferta(indice);
+    if (!_inventarioArmas.puedeAplicarOferta(oferta))
     {
-        jugador.aumentarVidaMaxima(20);
+        return;
+    }
+    if (_inventarioArmas.reemplazaPistola(oferta.idArma))
+    {
+        _opcionReemplazo = indice;
+        return;
+    }
+    finalizarCompraEstacion(indice, false);
+}
+
+void Juego::confirmarReemplazoPistola()
+{
+    if (_opcionReemplazo < 3)
+    {
+        finalizarCompraEstacion(_opcionReemplazo, true);
+    }
+}
+
+void Juego::finalizarCompraEstacion(std::size_t indice, bool confirmarReemplazo)
+{
+    if (_estacionSeleccionada == nullptr || _estacionSeleccionada->usado ||
+        !jugador.estaVivo() || !_estacionMejoras.confirmarEleccion(indice, _inventarioArmas, confirmarReemplazo))
+    {
+        return;
     }
     aplicarBonificacionesArmas();
+    seleccionarArmaPrueba(static_cast<TipoArmaPrueba>(_estacionMejoras.obtenerOferta(indice).idArma - 1));
     _estacionSeleccionada->usado = true;
     _estacionSeleccionada = nullptr;
-    ventana.setTitle("WASD: mover | F: estacion | 1/2: armas | R: reiniciar | E: experiencia");
+    _opcionReemplazo = 3;
+    ventana.setTitle("WASD: mover | F: estacion/cofre | 1/2: slots de armas | R: reiniciar prueba");
+    relojFotogramas.restart();
+}
+
+void Juego::cancelarCompraEstacion()
+{
+    if (!_estacionMejoras.menuAbierto())
+    {
+        return;
+    }
+    jugador.ganarChatarra(_estacionMejoras.obtenerCosto());
+    _estacionMejoras.cancelarCompra();
+    _estacionSeleccionada = nullptr;
+    _opcionReemplazo = 3;
+    ventana.setTitle("WASD: mover | F: estacion/cofre | 1/2: slots de armas | R: reiniciar prueba");
     relojFotogramas.restart();
 }
 
@@ -937,28 +1027,60 @@ void Juego::dibujarMenuEstacion()
     sf::RectangleShape velo({1920.0f, 1080.0f});
     velo.setFillColor(sf::Color(0, 0, 0, 210));
     ventana.draw(velo);
-    sf::Text titulo(fuenteDanio, "ESTACION DE MEJORAS - ELEGI UNA", 34);
-    titulo.setPosition({300.0f, 290.0f});
+    sf::Text titulo(fuenteDanio, "ESTACION DE ARMAS - ELEGI UNA OFERTA", 34);
+    titulo.setPosition({300.0f, 220.0f});
     ventana.draw(titulo);
     sf::Text costo(fuenteDanio, "Pagado: " + std::to_string(_estacionMejoras.obtenerCosto()) +
                     " de chatarra | Proxima compra: +60%", 22);
-    costo.setPosition({300.0f, 345.0f});
+    costo.setPosition({300.0f, 270.0f});
     ventana.draw(costo);
+    const std::string slots = "Slot 1: " + std::string(InventarioArmas::obtenerNombreArma(_inventarioArmas.obtenerIdSlot(0))) +
+        (_inventarioArmas.obtenerIdSlot(0) == 1 ? " (solo la pistola se puede reemplazar)" : " (fijo)") +
+        " | Slot 2: " + InventarioArmas::obtenerNombreArma(_inventarioArmas.obtenerIdSlot(1)) +
+        (_inventarioArmas.obtenerIdSlot(1) == 0 ? "" : " (fijo)");
+    sf::Text inventario(fuenteDanio, slots, 22);
+    inventario.setPosition({300.0f, 315.0f});
+    ventana.draw(inventario);
+    if (_opcionReemplazo < 3)
+    {
+        const BonificacionesArma bonos = _inventarioArmas.obtenerBonificaciones(1);
+        sf::Text advertencia(fuenteDanio,
+            "REEMPLAZAR PISTOLA: ELECCION DEFINITIVA\n\n" +
+            _estacionMejoras.describirOpcion(_opcionReemplazo) +
+            "\n\nPerdes la pistola y sus mejoras: +" + std::to_string(bonos.porcentajeDano) +
+            "% dano, +" + std::to_string(bonos.porcentajeCadencia) + "% cadencia, " +
+            std::to_string(bonos.especiales) + " proyectiles extra.\n" +
+            "El slot 2 se conserva. Los dos slots quedan fijos.\n\n" +
+            "1: confirmar reemplazo | 2: volver a las mismas ofertas", 25);
+        advertencia.setPosition({300.0f, 405.0f});
+        advertencia.setFillColor(sf::Color(255, 205, 125));
+        ventana.draw(advertencia);
+        return;
+    }
     for (std::size_t i = 0; i < 3; ++i)
     {
-        sf::RectangleShape tarjeta({1320.0f, 85.0f});
-        tarjeta.setPosition({300.0f, 405.0f + i * 105.0f});
+        const OfertaArma oferta = _estacionMejoras.obtenerOferta(i);
+        sf::RectangleShape tarjeta({1320.0f, 110.0f});
+        tarjeta.setPosition({300.0f, 385.0f + i * 135.0f});
         tarjeta.setFillColor(sf::Color(35, 52, 57));
         tarjeta.setOutlineThickness(2.0f);
-        tarjeta.setOutlineColor(sf::Color(85, 235, 165));
+        tarjeta.setOutlineColor(obtenerColorRareza(oferta.rareza));
         ventana.draw(tarjeta);
         sf::Text texto(fuenteDanio, std::to_string(i + 1) + "   " +
-                        EstacionMejoras::describirOpcion(i), 25);
-        texto.setPosition({325.0f, 430.0f + i * 105.0f});
+                        _estacionMejoras.describirOpcion(i), 24);
+        texto.setPosition({325.0f, 399.0f + i * 135.0f});
+        texto.setFillColor(obtenerColorRareza(oferta.rareza));
         ventana.draw(texto);
+        const char* destino = _inventarioArmas.poseeArma(oferta.idArma) ? "Mejora tu arma actual" :
+            (_inventarioArmas.reemplazaPistola(oferta.idArma) ?
+                "Reemplaza la pistola: requiere confirmacion y fija el slot 1" : "Adquiere el arma con estos beneficios y fija el slot 2");
+        sf::Text detalle(fuenteDanio, destino, 20);
+        detalle.setPosition({325.0f, 445.0f + i * 135.0f});
+        ventana.draw(detalle);
+        _aspectoArmas.dibujar(ventana, {1530.0f, 457.0f + i * 135.0f}, 0.0f, oferta.idArma);
     }
     sf::Text ayuda(fuenteDanio,
-        "Partida en pausa | Elegir: 1 / 2 / 3 | R: cancelar y reiniciar (devuelve el pago)", 22);
-    ayuda.setPosition({300.0f, 760.0f});
+        "Partida en pausa | 1 / 2 / 3: elegir | Escape: devolver pago | R: reiniciar prueba", 22);
+    ayuda.setPosition({300.0f, 810.0f});
     ventana.draw(ayuda);
 }

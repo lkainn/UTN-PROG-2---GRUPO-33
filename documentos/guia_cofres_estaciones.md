@@ -321,7 +321,7 @@ std::array<int, 2> _cadenciaCofres{};
 
 Las llaves vacías inicializan los contadores en cero. Índice 0 representa
 pistola y 1 metralleta. Los contadores locales se suman a los bonos generales
-de la estación antes de llamar a `Arma::configurarBonificaciones`.
+de la estación para calcular los porcentajes aplicados al arma.
 
 No modifican el nivel interno de Arma ni sus registros base. Son contadores
 temporales de integración. Por ejemplo, dos aumentos de daño suman 40% del

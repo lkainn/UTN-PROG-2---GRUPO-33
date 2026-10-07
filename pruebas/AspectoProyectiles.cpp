@@ -23,7 +23,10 @@ int main()
         "carga ambas texturas");
     correcto &= comprobar(!sinArchivos.texturaDisponible(false) && !sinArchivos.texturaDisponible(true),
         "faltantes utilizan respaldo");
-    const char* nombres[] = {"pistola_v1.png", "metralleta_v1.png"};
+    correcto &= comprobar(aspecto.texturaDisponible(3) && aspecto.texturaDisponible(4) &&
+        !sinArchivos.texturaDisponible(3) && !sinArchivos.texturaDisponible(4) &&
+        !aspecto.texturaDisponible(0) && !aspecto.texturaDisponible(5), "carga nuevos IDs y valida rango");
+    const char* nombres[] = {"pistola_v1.png", "metralleta_v1.png", "escopeta_v1.png", "canon_energia_v1.png"};
     for (const char* nombre : nombres)
     {
         sf::Image imagen;
@@ -89,26 +92,58 @@ int main()
     correcto &= comprobar(destino.getTexture().copyToImage().getPixel({64, 57}).a == 0,
         "inactivo no se dibuja");
 
-    sf::RenderTexture muestra({640, 240});
+    sf::RenderTexture muestra({640, 480});
     muestra.clear(sf::Color(48, 41, 33));
     sf::Font fuente;
     const bool fuenteDisponible = fuente.openFromFile("recursos/Tuffy.ttf");
-    for (int fila = 0; fila < 2; ++fila)
+    for (int fila = 0; fila < 4; ++fila)
     {
         if (fuenteDisponible)
         {
-            sf::Text texto(fuente, fila == 0 ? "PISTOLA 28x14" : "METRALLETA 14x6", 18);
+            const std::array<const char*, 4> etiquetas{{"PISTOLA 28x14", "METRALLETA 14x6",
+                "ESCOPETA 8x8", "CANON ENERGIA 40x10"}};
+            sf::Text texto(fuente, etiquetas[fila], 18);
             texto.setPosition({12.0f, 12.0f + fila * 110.0f});
             muestra.draw(texto);
         }
-        const float ancho = fila == 0 ? 28.0f : 14.0f;
-        const float alto = fila == 0 ? 14.0f : 6.0f;
+        const std::array<float, 4> anchos{{28.0f, 14.0f, 8.0f, 40.0f}};
+        const std::array<float, 4> altos{{14.0f, 6.0f, 8.0f, 10.0f}};
+        const float ancho = anchos[fila];
+        const float alto = altos[fila];
         for (int i = 0; i < 4; ++i)
         {
             const float angulo = i * 0.78539816f;
             Proyectil bala({55.0f + i * 140.0f, 55.0f + fila * 110.0f},
-                std::cos(angulo) * 100.0f, std::sin(angulo) * 100.0f, ancho, alto, 10);
+                std::cos(angulo) * 100.0f, std::sin(angulo) * 100.0f, ancho, alto, 10, fila + 1);
             aspecto.dibujar(muestra, bala);
+            if (fila >= 2)
+            {
+                Proyectil prueba({50.0f, 50.0f}, std::cos(angulo) * 100.0f,
+                    std::sin(angulo) * 100.0f, ancho, alto, 10, fila + 1);
+                destino.clear(sf::Color::Transparent);
+                aspecto.dibujar(destino, prueba);
+                destino.display();
+                const sf::Image conTextura = destino.getTexture().copyToImage();
+                destino.clear(sf::Color::Transparent);
+                sinArchivos.dibujar(destino, prueba);
+                destino.display();
+                const sf::Image conRespaldo = destino.getTexture().copyToImage();
+                int diferentes = 0;
+                int visibles = 0;
+                for (unsigned int y = 0; y < 128; ++y)
+                {
+                    for (unsigned int x = 0; x < 128; ++x)
+                    {
+                        visibles += conTextura.getPixel({x, y}).a > 0 ? 1 : 0;
+                        diferentes += conTextura.getPixel({x, y}) != conRespaldo.getPixel({x, y}) ? 1 : 0;
+                    }
+                }
+                correcto &= comprobar(visibles > 0 && diferentes > 0,
+                    "proyectil nuevo usa textura y gira en lugar del respaldo");
+                correcto &= comprobar(bala.obtenerFormaColision().ancho == ancho &&
+                    bala.obtenerFormaColision().alto == alto && bala.obtenerIdArma() == fila + 1,
+                    "render conserva dimensiones e identidad del nuevo proyectil");
+            }
         }
     }
     muestra.display();

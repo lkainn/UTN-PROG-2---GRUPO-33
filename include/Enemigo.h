@@ -24,6 +24,7 @@ class Enemigo {
         void actualizar(Posicion objetivo, float dt);
         Posicion obtenerPosicion() const;
         FormaColision obtenerFormaColision() const;
+        int obtenerIdEnemigo() const; // 1 basico, 2 rapido, 3 resistente
         int obtenerDano() const;
         Recompensa obtenerRecompensa() const;
         void recibirDanio(int cantidad);

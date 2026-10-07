@@ -82,6 +82,10 @@ En cada fotograma se realizan estas operaciones:
 6. Se comparan la forma del proyectil y la forma del enemigo.
 7. Si existe impacto, el enemigo recibe el dano y el proyectil se desactiva.
 8. Si no hubo impacto y el proyectil salio del escenario, se desactiva.
+9. Si hay enemigos vivos y no existe un proyectil activo, el arma intenta
+   disparar automaticamente hacia el centro del mas cercano.
+10. Cada enemigo muerto conserva un temporizador propio y reaparece en su
+    posicion inicial despues de 3 segundos.
 
 La desactivacion inmediata evita que el mismo proyectil produzca dano en mas de
 un fotograma.
@@ -131,7 +135,7 @@ revisarse si en el futuro la clase administra memoria dinamica u otros recursos.
 ## Controles de la demostracion
 
 - `WASD` o flechas: mover al jugador.
-- `Espacio`: disparar un proyectil hacia la derecha.
+- El disparo es automatico hacia el enemigo cuando esta dentro del alcance.
 - `R`: reiniciar enemigo, proyectil y reloj de la prueba.
 - `K`: aplicar 20 puntos de dano al jugador para pruebas.
 - `E`: otorgar 40 puntos de experiencia al jugador para pruebas.
@@ -157,5 +161,5 @@ revisarse si en el futuro la clase administra memoria dinamica u otros recursos.
 - `Jugador::cargarEstado()` conserva por ahora la implementacion aportada por
   su autor y no reconstruye valores derivados como vida maxima o umbral de
   experiencia.
-- Solo existe un enemigo y un proyectil activo a la vez.
-- El disparo es manual y se desplaza solamente hacia la derecha.
+- Existen tres enemigos de demostracion y un solo proyectil activo a la vez.
+- Solo se selecciona el unico enemigo disponible en esta demostracion.

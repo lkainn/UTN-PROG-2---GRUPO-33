@@ -1,6 +1,6 @@
 # Proyecto TPI
 
-Base minima ejecutable del proyecto academico, con nombre temporal.
+Prototipo ejecutable del Proyecto TPI, con nombre temporal.
 
 ## Requisitos verificados
 
@@ -8,15 +8,14 @@ Base minima ejecutable del proyecto academico, con nombre temporal.
 - C++17.
 - SFML 3.1.0 para GCC 14.2.0 MinGW, UCRT/SEH, 64 bits.
 
-Es importante que la version y arquitectura del compilador coincidan con el
-paquete de SFML.
+La versión y la arquitectura del compilador deben coincidir con el paquete
+local de SFML.
 
 ## Preparar SFML
 
-1. Descargar el paquete oficial `SFML 3.1.0 - GCC 14.2.0 MinGW (SEH)
-   (UCRT) - 64-bit`.
+1. Descargar el paquete oficial `SFML 3.1.0 - GCC 14.2.0 MinGW (SEH) (UCRT) - 64-bit`.
 2. Extraerlo temporalmente.
-3. Copiar la carpeta extraida dentro de `dependencias`.
+3. Copiar la carpeta extraída dentro de `dependencias`.
 4. Renombrarla como `SFML`.
 
 La ruta resultante debe contener:
@@ -28,7 +27,7 @@ dependencias/SFML/bin
 ```
 
 La dependencia no se guarda en el repositorio. Cada integrante debe instalar
-la misma copia localmente.
+la misma versión localmente.
 
 ## Abrir y compilar
 
@@ -38,74 +37,139 @@ la misma copia localmente.
 4. Copiar las DLL de `dependencias/SFML/bin` a `bin/Debug`.
 5. Ejecutar desde Code::Blocks.
 
-Como alternativa, `compilar_debug.bat` realiza la compilacion y copia las DLL
-automaticamente usando el compilador incluido con Code::Blocks.
+Como alternativa, ejecutar `compilar_debug.bat` desde la raíz del proyecto.
+Compila y copia las DLL de SFML y MinGW automáticamente usando el compilador
+de `C:\Program Files\CodeBlocks\MinGW\bin`. Después se puede abrir
+`bin/Debug/ProyectoTPI.exe` directamente.
 
-La prueba visual temporal muestra al jugador y tres enemigos que lo persiguen.
-El suelo representa un deposito de chatarra al aire libre. `Escenario.h` y
+## Prototipo actual
+
+`GestorOleadas` administra la aparición de enemigos alrededor del jugador,
+con dificultad creciente durante los primeros cinco minutos. La interfaz
+muestra el número de oleada y los segundos de partida. Los rápidos se habilitan
+desde el segundo 60 y los resistentes desde el 180. R limpia los enemigos y
+reinicia el reloj de oleadas; el menú de mejoras pausa el combate.
+
+El suelo representa un depósito de chatarra al aire libre. `Escenario.h` y
 `Escenario.cpp` administran su textura, guardada en `recursos/entorno`.
-La camara sigue al jugador y el suelo se repite en coordenadas de mundo, por
-lo que se puede caminar mas alla de los bordes originales, incluso hacia
-coordenadas negativas. La interfaz permanece fija en pantalla. R tambien
-restablece la camara. La textura completa se reutiliza como mosaico; no es
-todavia un mapa de obstaculos ni una generacion de terrenos diferentes.
-El arma dispara automaticamente hacia el enemigo vivo visible mas cercano,
-dentro de un rango de 600 pixeles. Las balas tambien desaparecen al recorrer
-esa distancia maxima. Si un enemigo muere, reaparece en su
-posicion inicial despues de 3 segundos. Cuando un enemigo toca al jugador,
-aplica dano cada 0.75 segundos y aparece un numero rojo flotante con el valor
-recibido. Al morir, deja cuadrados recolectables: celeste para experiencia y
-amarillo para chatarra. El jugador debe acercarse a 90 pixeles para recogerlos;
-la cantidad obtenida aparece brevemente junto al personaje y los totales se
-muestran en la interfaz superior junto con el nombre del arma seleccionada.
-Solo para pruebas, 1 selecciona la pistola (25 de dano, 2 disparos por segundo)
-y 2 selecciona la metralleta (6 de dano, 8 disparos por segundo). Tambien se
-pueden usar las teclas del teclado numerico. La adquisicion definitiva del arma
-queda pendiente de integrar con el sistema de progreso. Ambas conservan su
-propio enfriamiento al alternar. El arma dispara aunque haya
-otros proyectiles en vuelo; cada disparo impacta una sola vez y se elimina al
-impactar o salir de la ventana. R
-reinicia la prueba, incluida la vida del jugador, y elimina los recursos que
-quedaron en el suelo, limpia los disparos y vuelve a seleccionar la pistola;
-Escape o el boton de la ventana la cierra. Los proyectiles de pistola son
-amarillos de 28 x 14 pixeles y los de metralleta naranjas de 14 x 6; ambos
-viajan a 800 pixeles por segundo y conservan su dano y formato al cambiar de arma.
+La cámara sigue al jugador y el suelo se repite en coordenadas de mundo,
+incluidas las negativas. La interfaz permanece fija en pantalla. R también
+restablece la cámara. El suelo todavía no incluye obstáculos con colisión.
 
-Una estacion de mejoras se encuentra cerca del punto inicial, a la
-derecha del jugador. Acercarse y pulsar F gasta chatarra y pausa el combate:
-1 elige +20 de vida maxima y actual, 2 elige +20% del dano base de ambas armas
-y 3 elige +15% de la velocidad base de ataque de ambas armas. Cada compra
-permite una sola eleccion. El costo empieza en 10 y aumenta 60% redondeando
-hacia arriba: 10, 16, 26, 42, 68... R devuelve una compra pendiente; las
-compras ya confirmadas, sus bonificaciones y el costo se conservan como el
-nivel y la chatarra del reinicio actual. La estacion usa un dibujo provisional
-de terminal mecanica. `EstacionMejoras.h/.cpp` aislan su logica para adaptarla
-al catalogo definitivo del responsable. Los dos metodos nuevos de Jugador
-estan autorizados para pruebas y marcados TEMPORAL.
+El arma dispara automáticamente hacia el enemigo vivo visible más cercano
+dentro de su alcance: pistola y metralleta, 600 px; escopeta, 300 px; cañón de
+energía, 800 px. Los proyectiles desaparecen al agotar el alcance o salir de
+la vista. Cada arma conserva su enfriamiento al alternar y puede disparar
+mientras otros proyectiles siguen en vuelo.
 
-La clase `Arma` conserva las estadisticas del arma y controla el tiempo entre
-disparos. La clase `Proyectil` mantiene el movimiento, dano y estado de cada
-disparo.
+El contacto con enemigos aplica daño con 0,75 segundos de invulnerabilidad
+entre impactos y muestra un número rojo flotante. Al morir, los enemigos dejan
+recursos: celeste para experiencia y amarillo para chatarra. Se recogen al
+acercarse a 90 px; la cantidad obtenida aparece junto al personaje y los
+acumulados se muestran en la interfaz.
 
-Para verificar los disparos simultaneos, la cadencia, las colisiones, las
-recompensas y el reinicio, ejecutar `pruebas/probar_juego_proyectiles.bat`
-desde la carpeta del proyecto. Esta prueba abre brevemente una ventana de SFML.
+### Controles
 
-`pruebas/probar_camara.bat` comprueba seguimiento, cobertura del suelo en
-coordenadas negativas, anclaje al mundo, proyectiles, reaparicion y reinicio.
-`pruebas/probar_estacion_mejoras.bat` comprueba el cobro unico, precio creciente,
-pausa, las tres opciones, el reembolso y la conservacion de compras confirmadas.
+| Tecla | Acción |
+|---|---|
+| WASD | Mover al jugador |
+| F | Interactuar con la estación o cofre disponible más cercano, dentro de 100 px |
+| 1 / 2 | Seleccionar un slot de arma fuera del menú |
+| 1 / 2 / 3 | Elegir una oferta de la estación |
+| 1 / 2 en la confirmación | Confirmar el reemplazo de pistola / volver a las ofertas |
+| Escape | Cancelar una compra pendiente y devolver el pago; fuera del menú, cerrar la ventana |
+| R | Reiniciar la prueba conservando inventario, mejoras, precios y encuentros usados |
+| K | Recibir 20 de daño para pruebas, fuera del menú |
+| E | Obtener 40 de experiencia para pruebas, fuera del menú |
 
+También se admiten las teclas numéricas del teclado numérico. R restaura la
+vida, limpia disparos y recursos del suelo, reinicia las recargas y selecciona
+el slot 1 actual. No recupera una pistola descartada.
+
+### Armas y gráficos
+
+Se inicia con pistola en el primer slot y el segundo vacío. Las demás armas
+se adquieren en estaciones junto con los beneficios de la oferta elegida.
+Solo se dispara el arma seleccionada; el uso simultáneo de dos armas sigue
+pendiente.
+
+| Arma | Daño base por proyectil | Disparos/s | Alcance | Descarga base |
+|---|---:|---:|---:|---|
+| Pistola | 25 | 2 | 600 px | Un proyectil, un impacto |
+| Metralleta | 6 | 8 | 600 px | Un proyectil, un impacto |
+| Escopeta | 12 | 0,8 | 300 px | Cinco perdigones, un impacto cada uno |
+| Cañón de energía | 60 | 0,5 | 800 px | Un proyectil, hasta tres enemigos distintos |
+
+Las mejoras especiales permiten hasta cinco proyectiles de pistola o metralleta,
+nueve perdigones de escopeta y seis impactos de energía. El cañón no repite daño
+sobre el mismo enemigo. Los disparos en vuelo conservan sus propiedades al
+mejorar o cambiar de arma.
+
+Las cuatro armas y sus proyectiles utilizan PNG transparentes. El arma equipada
+se dibuja junto al jugador y gira hacia el objetivo automático; sin objetivo
+conserva la última orientación. R restablece la orientación hacia la derecha.
+Los proyectiles de pistola miden 28 x 14 px y los de metralleta 14 x 6 px;
+ambos viajan a 800 px/s. Escopeta utiliza perdigones de 8 x 8 px y energía,
+proyectiles de 40 x 10 px. El giro es visual: las colisiones siguen alineadas
+a los ejes. Si falta una textura, se dibuja un rectángulo de respaldo.
+
+Ver [mecánicas de las armas nuevas](documentos/guia_escopeta_canon_energia.md)
+y [integración de gráficos](documentos/guia_graficos_armas_nuevas.md).
+
+### Estaciones, rarezas y cofres
+
+Los objetos se distribuyen por zonas al explorar y conservan su estado durante
+la ejecución. Cada estación permite una compra y queda apagada; cada cofre
+entrega una recompensa y queda abierto.
+
+Abrir una estación cobra chatarra y pausa el combate. Muestra tres ofertas
+con rareza común, rara, épica o legendaria. Elegir una oferta incorpora el arma
+con sus beneficios o mejora una ya poseída.
+
+La primera arma nueva ocupa el segundo slot, que queda fijo. Después solo
+puede reemplazarse la pistola del primero, con confirmación y pérdida de sus
+bonos. Ese reemplazo fija también el primer slot. Cuando ambos están fijos,
+solo se ofrecen mejoras de las armas actuales.
+
+El precio de estación comienza en 10 y aumenta un 60% tras cada compra,
+redondeando hacia arriba: 10, 16, 26, 42, 68… Cancelar devuelve el pago y
+conserva las ofertas; no consume la estación ni aumenta el precio.
+
+Los cofres entregan +20 de vida máxima y actual o +40 de experiencia.
+Sus precios aumentan con un contador independiente: 15, 24, 39, 63…
+No entregan armas ni mejoras de daño o cadencia.
+
+Ver [adquisición y rarezas](documentos/guia_adquisicion_rareza_armas.md) para
+probabilidades, porcentajes y topes, y [encuentros por zonas](documentos/encuentros_aleatorios.md)
+para distribución y persistencia.
+
+## Pruebas
+
+Ejecutar los archivos `.bat` desde la raíz del proyecto. Las pruebas gráficas
+abren brevemente una ventana de SFML.
+
+| Archivo | Comprobaciones |
+|---|---|
+| `pruebas/probar_juego_proyectiles.bat` | Disparos simultáneos, cadencia, colisiones, recompensas y reinicio |
+| `pruebas/probar_camara.bat` | Seguimiento, cobertura del suelo, coordenadas negativas, proyectiles y reinicio |
+| `pruebas/probar_estacion_mejoras.bat` | Cobro, ofertas, adquisición, reemplazo, pausa, reembolso y conservación de compras |
+| `pruebas/probar_inventario_armas.bat` | Slots, rarezas, bonificaciones, especiales y límites |
+| `pruebas/probar_aspecto_armas.bat` | Carga de texturas, orientación y respaldo sin imágenes |
+| `pruebas/probar_armas_nuevas.bat` | Abanico de escopeta, perforación, identidades, recargas y gráficos |
+| `pruebas/probar_encuentros.bat` | Distribución de estaciones y cofres, interacción, precios y recompensas |
 
 ## Estructura
 
 - `src`: implementaciones `.cpp`.
 - `include`: encabezados `.h`.
 - `recursos`: sprites, fuentes y sonidos.
-- `datos`: archivos binarios generados por el juego.
-- `documentos`: decisiones y documentacion del equipo.
-- `pruebas`: pruebas aisladas de los modulos.
+- `datos`: carpeta prevista para archivos binarios; su persistencia sigue pendiente.
+- `documentos`: decisiones y documentación del equipo.
+- `pruebas`: pruebas de los módulos y de integración.
 - `dependencias`: bibliotecas locales no incluidas en el repositorio.
 
-### Estaciones y cofres por zonas (prototipo)
-Los objetos se distribuyen al generar cada zona y conservan su estado. F interactua con el mas cercano. Cada estacion permite una compra y queda apagada; cada cofre entrega una recompensa automatica y queda abierto. Los precios de estaciones y cofres aumentan 60% con contadores independientes. Cofres: 15, 24, 39, 63... Ver documentos/encuentros_aleatorios.md. Pruebas: pruebas/probar_encuentros.bat.
+`Arma` conserva estadísticas y controla la recarga. `Proyectil` administra
+movimiento, daño y estado de cada disparo. `InventarioArmas` mantiene slots y
+bonos; `EstacionMejoras`, ofertas y precios. `Juego` coordina combate,
+interacciones y presentación. Las interfaces temporales de `Jugador` deberán
+coordinarse con su responsable antes de reemplazarlas.

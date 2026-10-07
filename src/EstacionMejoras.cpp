@@ -1,22 +1,12 @@
 #include "EstacionMejoras.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <limits>
 
-namespace
-{
-constexpr std::array<const char*, 3> OPCIONES{{
-    "Blindaje: +20 vida maxima y actual",
-    "Potencia: +20% del dano base de ambas armas",
-    "Cadencia: +15% velocidad base de ataque de ambas armas"
-}};
-}
-
 EstacionMejoras::EstacionMejoras()
     : _posicion{1100.0f, 540.0f}, _costo(10), _menuAbierto(false),
-      _nivelDano(0), _nivelCadencia(0)
+      _ofertas{}, _ofertasGuardadas{}
 {
 }
 
@@ -27,7 +17,7 @@ Posicion EstacionMejoras::obtenerPosicion() const
 
 void EstacionMejoras::establecerPosicion(Posicion posicion)
 {
-    if (std::isfinite(posicion.x) && std::isfinite(posicion.y))
+    if (!_menuAbierto && std::isfinite(posicion.x) && std::isfinite(posicion.y))
     {
         _posicion = posicion;
     }
@@ -54,8 +44,80 @@ bool EstacionMejoras::menuAbierto() const
     return _menuAbierto;
 }
 
-void EstacionMejoras::abrirMenu()
+OfertaArma EstacionMejoras::generarOferta(int idArma, const InventarioArmas& inventario,
+                                        std::mt19937& generador) const
 {
+    const bool permiteEspecial = inventario.puedeMejorarEspecial(idArma);
+    const int sorteo = std::uniform_int_distribution<int>(0, permiteEspecial ? 99 : 96)(generador);
+    RarezaMejora rareza = RarezaMejora::Legendaria;
+    if (sorteo < 60)
+    {
+        rareza = RarezaMejora::Comun;
+    }
+    else if (sorteo < 85)
+    {
+        rareza = RarezaMejora::Rara;
+    }
+    else if (sorteo < 97)
+    {
+        rareza = RarezaMejora::Epica;
+    }
+    const int probabilidadEspecial = rareza == RarezaMejora::Rara ? 15 :
+        (rareza == RarezaMejora::Epica ? 50 : 0);
+    const bool especial = permiteEspecial && (rareza == RarezaMejora::Legendaria ||
+        (probabilidadEspecial > 0 && std::uniform_int_distribution<int>(0, 99)(generador) < probabilidadEspecial));
+    return {idArma, rareza, especial};
+}
+
+void EstacionMejoras::abrirMenu(const InventarioArmas& inventario, std::mt19937& generador)
+{
+    if (_menuAbierto)
+    {
+        return;
+    }
+    const double zonaX = std::floor(static_cast<double>(_posicion.x) / 1200.0);
+    const double zonaY = std::floor(static_cast<double>(_posicion.y) / 1200.0);
+    if (zonaX < std::numeric_limits<int>::min() || zonaX > std::numeric_limits<int>::max() ||
+        zonaY < std::numeric_limits<int>::min() || zonaY > std::numeric_limits<int>::max())
+    {
+        return;
+    }
+    std::array<int, 4> candidatos{};
+    std::size_t cantidad = 0;
+    for (int idArma = 1; idArma <= 4; ++idArma)
+    {
+        if (inventario.puedeRecibirArma(idArma))
+        {
+            candidatos[cantidad++] = idArma;
+        }
+    }
+    if (cantidad == 0)
+    {
+        return;
+    }
+    const std::pair<int, int> zona{static_cast<int>(zonaX), static_cast<int>(zonaY)};
+    auto entrada = _ofertasGuardadas.find(zona);
+    bool necesitaSorteo = entrada == _ofertasGuardadas.end();
+    if (!necesitaSorteo)
+    {
+        for (const OfertaArma& oferta : entrada->second)
+        {
+            necesitaSorteo = necesitaSorteo || !inventario.puedeAplicarOferta(oferta);
+        }
+    }
+    if (necesitaSorteo)
+    {
+        std::shuffle(candidatos.begin(), candidatos.begin() + cantidad, generador);
+        auto& guardadas = _ofertasGuardadas[zona];
+        for (std::size_t indice = 0; indice < guardadas.size(); ++indice)
+        {
+            if (!inventario.puedeAplicarOferta(guardadas[indice]))
+            {
+                guardadas[indice] = generarOferta(candidatos[indice % cantidad], inventario, generador);
+            }
+        }
+    }
+    _ofertas = _ofertasGuardadas.at(zona);
     _menuAbierto = true;
 }
 
@@ -64,25 +126,13 @@ void EstacionMejoras::cancelarCompra()
     _menuAbierto = false;
 }
 
-bool EstacionMejoras::confirmarEleccion(std::size_t indice, MejoraBasica& elegida)
+bool EstacionMejoras::confirmarEleccion(std::size_t indice, InventarioArmas& inventario,
+                                      bool confirmarReemplazo)
 {
-    if (!_menuAbierto || indice >= OPCIONES.size())
+    if (!_menuAbierto || indice >= _ofertas.size() ||
+        !inventario.aplicarOferta(_ofertas[indice], confirmarReemplazo))
     {
         return false;
-    }
-    elegida = static_cast<MejoraBasica>(indice);
-    if ((elegida == MejoraBasica::Dano && _nivelDano == std::numeric_limits<int>::max()) ||
-        (elegida == MejoraBasica::Cadencia && _nivelCadencia == std::numeric_limits<int>::max()))
-    {
-        return false;
-    }
-    if (elegida == MejoraBasica::Dano)
-    {
-        ++_nivelDano;
-    }
-    else if (elegida == MejoraBasica::Cadencia)
-    {
-        ++_nivelCadencia;
     }
     const long long siguienteCosto = (static_cast<long long>(_costo) * 8 + 4) / 5;
     _costo = static_cast<int>(std::min(siguienteCosto,
@@ -91,17 +141,29 @@ bool EstacionMejoras::confirmarEleccion(std::size_t indice, MejoraBasica& elegid
     return true;
 }
 
-int EstacionMejoras::obtenerNivelDano() const
+OfertaArma EstacionMejoras::obtenerOferta(std::size_t indice) const
 {
-    return _nivelDano;
+    return indice < _ofertas.size() ? _ofertas[indice] : OfertaArma{};
 }
 
-int EstacionMejoras::obtenerNivelCadencia() const
+std::string EstacionMejoras::describirOpcion(std::size_t indice) const
 {
-    return _nivelCadencia;
-}
-
-const char* EstacionMejoras::describirOpcion(std::size_t indice)
-{
-    return indice < OPCIONES.size() ? OPCIONES[indice] : "";
+    const OfertaArma oferta = obtenerOferta(indice);
+    if (!oferta.esValida())
+    {
+        return "";
+    }
+    std::string texto = std::string(InventarioArmas::obtenerNombreArma(oferta.idArma)) +
+        " - " + InventarioArmas::obtenerNombreRareza(oferta.rareza) +
+        " | +" + std::to_string(oferta.obtenerPorcentajeDano()) + "% dano";
+    if (oferta.obtenerPorcentajeCadencia() > 0)
+    {
+        texto += " | +" + std::to_string(oferta.obtenerPorcentajeCadencia()) + "% cadencia";
+    }
+    if (oferta.especial)
+    {
+        texto += oferta.idArma == 4 ? " | +1 enemigo atravesado" :
+            (oferta.idArma == 3 ? " | +1 perdigon" : " | +1 proyectil");
+    }
+    return texto;
 }

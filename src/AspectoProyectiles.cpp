@@ -9,6 +9,8 @@ AspectoProyectiles::AspectoProyectiles(const char* carpeta)
 {
     _disponibles[0] = cargar(0, carpeta, "pistola_v1.png");
     _disponibles[1] = cargar(1, carpeta, "metralleta_v1.png");
+    _disponibles[2] = cargar(2, carpeta, "escopeta_v1.png");
+    _disponibles[3] = cargar(3, carpeta, "canon_energia_v1.png");
 }
 
 bool AspectoProyectiles::cargar(std::size_t indice, const char* carpeta, const char* nombre)
@@ -68,8 +70,11 @@ void AspectoProyectiles::dibujar(sf::RenderTarget& destino, const Proyectil& pro
         return;
     }
     const FormaColision forma = proyectil.obtenerFormaColision();
-    const bool metralleta = forma.ancho == 14.0f && forma.alto == 6.0f;
-    const std::size_t indice = metralleta ? 1 : 0;
+    const int idArma = proyectil.obtenerIdArma();
+    const bool metralleta = idArma == 2 ||
+        (idArma == 0 && forma.ancho == 14.0f && forma.alto == 6.0f);
+    const std::size_t indice = idArma >= 1 && idArma <= 4 ?
+        static_cast<std::size_t>(idArma - 1) : (metralleta ? 1 : 0);
     sf::RectangleShape figura({forma.ancho, forma.alto});
     figura.setOrigin({forma.ancho / 2.0f, forma.alto / 2.0f});
     figura.setPosition({forma.x + forma.ancho / 2.0f, forma.y + forma.alto / 2.0f});
@@ -81,12 +86,19 @@ void AspectoProyectiles::dibujar(sf::RenderTarget& destino, const Proyectil& pro
     }
     else
     {
-        figura.setFillColor(metralleta ? sf::Color(255, 140, 50) : sf::Color(255, 225, 70));
+        const std::array<sf::Color, 4> colores{{sf::Color(255, 225, 70),
+            sf::Color(255, 140, 50), sf::Color(255, 200, 110), sf::Color(70, 220, 255)}};
+        figura.setFillColor(colores[indice]);
     }
     destino.draw(figura);
 }
 
 bool AspectoProyectiles::texturaDisponible(bool metralleta) const
 {
-    return _disponibles[metralleta ? 1 : 0];
+    return texturaDisponible(metralleta ? 2 : 1);
+}
+
+bool AspectoProyectiles::texturaDisponible(int idArma) const
+{
+    return idArma >= 1 && idArma <= 4 && _disponibles[idArma - 1];
 }

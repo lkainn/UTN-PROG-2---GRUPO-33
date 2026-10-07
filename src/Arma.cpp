@@ -6,7 +6,8 @@
 #include <limits>
 
 Arma::Arma(int id, const char* nombre, int dano, float velocidadAtaque,
-           float alcance, int nivelMaximo)
+           float alcance, int nivelMaximo, int cantidadProyectiles,
+           float dispersion, int maximoImpactos)
     : _id(id > 0 ? id : 0),
       _nombre{},
       _dano(dano > 0 ? dano : 0),
@@ -17,7 +18,11 @@ Arma::Arma(int id, const char* nombre, int dano, float velocidadAtaque,
       _alcance(std::isfinite(alcance) && alcance > 0.0f ? alcance : 0.0f),
       _nivelActual(nivelMaximo > 0 ? 1 : 0),
       _nivelMaximo(nivelMaximo > 0 ? nivelMaximo : 0),
-      _tiempoRestante(0.0f) {
+      _tiempoRestante(0.0f),
+      _cantidadProyectiles(std::clamp(cantidadProyectiles, 1, 9)),
+      _dispersion(std::isfinite(dispersion) && dispersion >= 0.0f && dispersion <= 3.14159265f
+          ? dispersion : 0.0f),
+      _maximoImpactos(std::clamp(maximoImpactos, 1, 6)) {
     if (nombre != nullptr) {
         std::strncpy(_nombre, nombre, sizeof(_nombre) - 1);
         _nombre[sizeof(_nombre) - 1] = '\0';
@@ -56,7 +61,7 @@ bool Arma::intentarDisparar(Proyectil& proyectil, Posicion origen,
     };
 
     Proyectil nuevoProyectil(posicionInicial, velocidadX, velocidadY,
-                             anchoProyectil, altoProyectil, obtenerDano());
+                             anchoProyectil, altoProyectil, obtenerDano(), _id, obtenerMaximoImpactos());
     nuevoProyectil.limitarAlcance(_alcance);
     if (!nuevoProyectil.estaActivo()) {
         return false;
@@ -64,6 +69,33 @@ bool Arma::intentarDisparar(Proyectil& proyectil, Posicion origen,
 
     proyectil = nuevoProyectil;
     _tiempoRestante = 1.0f / obtenerVelocidadAtaque();
+    return true;
+}
+
+bool Arma::intentarDispararRafaga(std::vector<Proyectil>& proyectiles, Posicion origen,
+                                Posicion objetivo, float velocidadProyectil,
+                                float anchoProyectil, float altoProyectil)
+{
+    Proyectil central({0.0f, 0.0f}, 0.0f, 0.0f, 0.0f, 0.0f, 0);
+    if (!intentarDisparar(central, origen, objetivo, velocidadProyectil,
+                         anchoProyectil, altoProyectil))
+    {
+        return false;
+    }
+    // El disparo central valida toda la descarga y consume una sola recarga.
+    const int cantidad = obtenerCantidadProyectiles();
+    const float dispersion = _dispersion > 0.0f ? _dispersion : 0.1745329f;
+    for (int indice = 0; indice < cantidad; ++indice)
+    {
+        Proyectil perdigon = central;
+        if (cantidad > 1)
+        {
+            const float angulo = -dispersion / 2.0f +
+                dispersion * indice / (cantidad - 1);
+            perdigon.desviar(angulo);
+        }
+        proyectiles.push_back(perdigon);
+    }
     return true;
 }
 
@@ -80,7 +112,7 @@ const char* Arma::obtenerNombre() const {
 }
 
 int Arma::obtenerDano() const {
-    const long long porcentaje = 100LL + 20LL * _nivelDano;
+    const long long porcentaje = 100LL + _porcentajeDano;
     if (_dano > static_cast<long long>(std::numeric_limits<int>::max()) * 100 / porcentaje)
     {
         return std::numeric_limits<int>::max();
@@ -91,14 +123,15 @@ int Arma::obtenerDano() const {
 }
 
 float Arma::obtenerVelocidadAtaque() const {
-    return _velocidadAtaque * (1.0f + 0.15f * _nivelCadencia);
+    return _velocidadAtaque * (1.0f + 0.01f * _porcentajeCadencia);
 }
 
-void Arma::configurarBonificaciones(int nivelDano, int nivelCadencia)
+void Arma::configurarMejoras(int porcentajeDano, int porcentajeCadencia, int especiales)
 {
     const float anterior = obtenerVelocidadAtaque();
-    _nivelDano = std::max(0, nivelDano);
-    _nivelCadencia = std::max(0, nivelCadencia);
+    _porcentajeDano = std::max(0, porcentajeDano);
+    _porcentajeCadencia = std::max(0, porcentajeCadencia);
+    _especiales = std::clamp(especiales, 0, _id == 4 ? 3 : 4);
     if (anterior > 0.0f && obtenerVelocidadAtaque() > 0.0f)
     {
         _tiempoRestante *= anterior / obtenerVelocidadAtaque();
@@ -107,6 +140,21 @@ void Arma::configurarBonificaciones(int nivelDano, int nivelCadencia)
 
 float Arma::obtenerAlcance() const {
     return _alcance;
+}
+
+int Arma::obtenerCantidadProyectiles() const
+{
+    if (_id == 4)
+    {
+        return _cantidadProyectiles;
+    }
+    const int maximo = _id == 1 || _id == 2 ? 5 : 9;
+    return std::min(_cantidadProyectiles + _especiales, maximo);
+}
+
+int Arma::obtenerMaximoImpactos() const
+{
+    return std::min(_maximoImpactos + (_id == 4 ? _especiales : 0), 6);
 }
 
 int Arma::obtenerNivelActual() const {

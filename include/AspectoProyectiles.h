@@ -10,10 +10,11 @@ public:
     explicit AspectoProyectiles(const char* carpeta = "recursos/proyectiles");
     void dibujar(sf::RenderTarget& destino, const Proyectil& proyectil) const;
     bool texturaDisponible(bool metralleta) const;
+    bool texturaDisponible(int idArma) const;
 
 private:
-    std::array<sf::Texture, 2> _texturas;
-    std::array<sf::IntRect, 2> _recortes;
-    std::array<bool, 2> _disponibles;
+    std::array<sf::Texture, 4> _texturas;
+    std::array<sf::IntRect, 4> _recortes;
+    std::array<bool, 4> _disponibles;
     bool cargar(std::size_t indice, const char* carpeta, const char* nombre);
 };
