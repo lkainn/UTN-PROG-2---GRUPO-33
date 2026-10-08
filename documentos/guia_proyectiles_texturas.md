@@ -1,5 +1,11 @@
 # Guía de proyectiles y texturas - Proyecto TPI
 
+Esta guía describe la primera integración de pistola y metralleta. La ampliación
+a cuatro texturas y la selección por ID ya están implementadas; consultar la
+[guía de gráficos de armas nuevas](guia_graficos_armas_nuevas.md) para el estado
+actual de esos puntos. Los fragmentos de dos texturas y selección por dimensiones
+que aparecen debajo corresponden a la implementación anterior.
+
 
 
 Archivos principales:

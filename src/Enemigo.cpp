@@ -68,6 +68,13 @@ FormaColision Enemigo::obtenerFormaColision()const{
     return forma;
 }
 
+// Sirve para saber de que variante es un enemigo ya creado: quien lo dibuja
+// elige el color segun este id, y mas adelante identifica su fila en
+// Enemigos.dat.
+int Enemigo::obtenerIdEnemigo() const {
+    return idEnemigo;
+}
+
 int Enemigo::obtenerDano() const {
     return dano;
 }
