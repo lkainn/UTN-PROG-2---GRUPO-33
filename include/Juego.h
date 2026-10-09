@@ -2,7 +2,8 @@
 
 #include "Arma.h"
 #include "AspectoProyectiles.h"
-#include "Enemigo.h"
+#include "AspectoArmas.h"
+#include "GestorOleadas.h"
 #include "Escenario.h"
 #include "EstacionMejoras.h"
 #include "EncuentroAleatorio.h"
@@ -15,6 +16,7 @@
 #include <vector>
 #include <string>
 #include <random>
+#include <cstdint>
 
 class Juego {
 public:
@@ -23,12 +25,12 @@ public:
     void ejecutar();
 
 private:
-    static constexpr std::size_t CANTIDAD_ENEMIGOS = 9;
-
     enum class TipoArmaPrueba
     {
         Pistola,
-        Metralleta
+        Metralleta,
+        Escopeta,
+        CanonEnergia
     };
 
     struct IndicadorDanio {
@@ -63,19 +65,22 @@ private:
     // Prestado del mapa; std::map conserva el nodo al generar otras zonas.
     ObjetoEncuentro* _estacionSeleccionada = nullptr;
     int _costoCofre = 15;
-    bool _metralletaAdquirida = false;
-    std::array<int, 2> _danoCofres{};
-    std::array<int, 2> _cadenciaCofres{};
+    InventarioArmas _inventarioArmas;
+    std::size_t _opcionReemplazo = 3;
     std::string _mensajeCofre;
     float _tiempoMensajeCofre = 0.0f;
     Jugador jugador;
-    std::array<Enemigo, CANTIDAD_ENEMIGOS> enemigosPrueba;
-    std::array<sf::RectangleShape, CANTIDAD_ENEMIGOS> figurasEnemigosPrueba;
-    std::array<float, CANTIDAD_ENEMIGOS> tiemposReaparicion;
+    GestorOleadas _gestorOleadas;
+    std::vector<std::uint64_t> _identificadoresEnemigos;
+    std::uint64_t _siguienteIdEnemigo = 1;
     AspectoProyectiles _aspectoProyectiles;
+    AspectoArmas _aspectoArmas;
+    float _anguloArma = 0.0f;
     std::vector<Proyectil> _proyectiles;
     Arma armaPrueba;
     Arma _metralletaPrueba;
+    Arma _escopetaPrueba;
+    Arma _canonEnergiaPrueba;
     TipoArmaPrueba _armaSeleccionada;
     sf::Font fuenteDanio;
     bool fuenteDanioDisponible;
@@ -88,6 +93,7 @@ private:
     void procesarEventos();
     void actualizar();
     void actualizarEnemigos(float segundos);
+    void sincronizarIdentificadoresEnemigos();
     void actualizarDanoContacto(float segundos);
     void actualizarIndicadoresDanio(float segundos);
     void actualizarRecursos(float segundos);
@@ -100,11 +106,15 @@ private:
     void actualizarDisparoAutomatico();
     void actualizarArmas(float segundos);
     void seleccionarArmaPrueba(TipoArmaPrueba tipo);
+    void seleccionarSlotArma(std::size_t slot);
     Arma& obtenerArmaSeleccionada();
     void generarRecompensa(const Enemigo& enemigo);
     void reiniciarPrueba();
     void intentarComprarMejora();
     void elegirMejoraEstacion(std::size_t indice);
+    void confirmarReemplazoPistola();
+    void finalizarCompraEstacion(std::size_t indice, bool confirmarReemplazo);
+    void cancelarCompraEstacion();
     void dibujarEstacionMejoras(const ObjetoEncuentro& objeto);
     void dibujarEncuentros();
     void dibujarMenuEstacion();

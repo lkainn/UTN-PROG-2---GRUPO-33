@@ -196,15 +196,10 @@ correcto &= comprobar(imagen.getPixel({static_cast<unsigned int>(pixel.x),
     correcto &= comprobar(cofre->usado && cofre->posicion.x == lugar.x, "ningun temporizador regenera objetos");
     juego.dibujar();
 
-    juego._metralletaAdquirida = true;
-    juego._armaSeleccionada = Juego::TipoArmaPrueba::Pistola;
-    juego._danoCofres = {4, 0};
-    juego._cadenciaCofres = {4, 0};
+    const int danoAntes = juego.armaPrueba.obtenerDano();
+    const float cadenciaAntes = juego.armaPrueba.obtenerVelocidadAtaque();
+    const int segundoSlotAntes = juego._inventarioArmas.obtenerIdSlot(1);
     ObjetoEncuentro* agotado = siguiente(juego, TipoEncuentro::Cofre);
-    juego.intentarAbrirCofre();
-    correcto &= comprobar(!agotado->usado && juego._costoCofre == 63 &&
-        juego.jugador.getChatarra() == saldo, "sin recompensas no cobra ni consume");
-    juego._danoCofres[0] = 3;
     juego.jugador.recibirDano(9999);
     juego.intentarAbrirCofre();
     correcto &= comprobar(!agotado->usado, "muerto no abre");
@@ -212,9 +207,18 @@ correcto &= comprobar(imagen.getPixel({static_cast<unsigned int>(pixel.x),
     juego.jugador.setPosicion(agotado->posicion);
     juego._costoCofre = std::numeric_limits<int>::max();
     juego.jugador.ganarChatarra(std::numeric_limits<int>::max() - juego.jugador.getChatarra());
+    const int vidaAntes = juego.jugador.getVidaMaxima();
+    const int nivelAntes = juego.jugador.getNivel();
+    const int experienciaAntes = juego.jugador.getExperiencia();
     juego.intentarAbrirCofre();
     correcto &= comprobar(agotado->usado && juego._costoCofre == std::numeric_limits<int>::max() &&
-        juego.jugador.getChatarra() == 0 && juego._danoCofres[0] == 4, "precio grande satura y recompensa elegible");
+        juego.jugador.getChatarra() == 0, "precio grande satura y recompensa elegible");
+    correcto &= comprobar(juego.armaPrueba.obtenerDano() == danoAntes &&
+        juego.armaPrueba.obtenerVelocidadAtaque() == cadenciaAntes &&
+        juego._inventarioArmas.obtenerIdSlot(1) == segundoSlotAntes,
+        "cofre no adquiere ni mejora armas");
+    correcto &= comprobar(juego.jugador.getVidaMaxima() > vidaAntes || juego.jugador.getNivel() > nivelAntes ||
+        juego.jugador.getExperiencia() > experienciaAntes, "cofre entrega beneficio al personaje");
     juego.ventana.close();
     if (correcto)
     {

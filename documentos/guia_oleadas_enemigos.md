@@ -1,7 +1,5 @@
 # Oleadas de enemigos y dificultad progresiva
 
-Fecha de referencia: 5 de octubre de 2026.
-
 ## Objetivo
 
 Este incremento concentra en una sola clase la aparicion, el movimiento y la
@@ -48,6 +46,7 @@ persistencia en archivos binarios.
 ```cpp
 void actualizar(Posicion posicionJugador, float dt);
 const std::vector<Enemigo>& obtenerEnemigos() const;
+std::vector<Enemigo>& obtenerEnemigos();
 void reiniciar();
 std::size_t cantidadEnemigos() const;
 void danarATodos(int cantidad);          // solo para pruebas del modulo
@@ -58,9 +57,10 @@ float intervaloActual() const;
 std::size_t maximoVivosActual() const;
 ```
 
-`obtenerEnemigos()` devuelve una referencia constante: los enemigos se
-modifican unicamente desde `actualizar()`. Quien dibuja o resuelve colisiones
-solo lee.
+`obtenerEnemigos()` tiene una version constante para consultas y otra mutable
+para aplicar dano individual desde los proyectiles. No se altera la lista
+durante los recorridos ni se conservan referencias a enemigos entre fotogramas:
+el gestor puede insertar o borrar elementos y realojar su vector.
 
 `danarATodos()` existe para demostrar el modulo sin proyectiles. En el juego el
 dano lo aplica quien detecta el impacto, llamando a `Enemigo::recibirDanio()`.
@@ -265,10 +265,19 @@ El `deltaTime` se limita a 0.05 segundos, con el mismo criterio que `Juego`.
 - No hay condicion de victoria ni de derrota administrada por el modulo.
 - No se leen las variantes desde `Enemigos.dat` ni se registran resultados en
   `Partidas.dat`.
-- El gestor todavia no esta integrado en `Juego`, que conserva su arreglo fijo
-  de nueve enemigos.
-- En el esquema temporal vigente de `Juego`, el arreglo `TIPOS_ENEMIGOS` tiene
-  tres elementos y se indexa con el indice del enemigo, que alcanza el valor
-  ocho. Los indices 3 a 8 leen fuera del arreglo: `std::array::operator[]` no
-  verifica el rango y devuelve contenido indeterminado. La integracion del
-  gestor elimina ese acceso.
+
+## Integracion comprobada en Juego
+
+Juego reemplaza los arreglos fijos por el gestor. Primero genera, mueve y
+limpia los muertos del fotograma anterior; luego procesa contacto y proyectiles.
+Cada impacto letal genera la recompensa inmediatamente, una sola vez, antes
+de que el gestor retire al enemigo en el siguiente fotograma.
+El menu de mejoras pausa la simulacion. Al morir el jugador se detienen la
+generacion y el reloj de oleadas. R vacia el gestor y reinicia su tiempo.
+El vector administra su memoria automaticamente; Juego no conserva referencias
+a enemigos entre actualizaciones.
+
+Pruebas: `probar_juego_proyectiles.bat` comprueba combate, limpieza, recompensas,
+reinicio, techo de poblacion y dificultad maxima. `probar_camara.bat` comprueba
+aparicion alrededor del jugador desplazado. `probar_estacion_mejoras.bat`
+comprueba que la pausa tambien detenga el reloj del gestor.

@@ -9,7 +9,8 @@ float Proyectil::obtenerAngulo() const
 }
 
 Proyectil::Proyectil(Posicion posicion, float velocidadX, float velocidadY,
-                     float ancho, float alto, int dano)
+                     float ancho, float alto, int dano, int idArma,
+                     int maximoImpactos)
     : _posicion(posicion),
       _velocidadX(velocidadX),
       _velocidadY(velocidadY),
@@ -18,7 +19,52 @@ Proyectil::Proyectil(Posicion posicion, float velocidadX, float velocidadY,
       _dano(dano),
       _activo(std::isfinite(posicion.x) && std::isfinite(posicion.y) &&
               std::isfinite(velocidadX) && std::isfinite(velocidadY) &&
-              _ancho > 0.0f && _alto > 0.0f) {
+              _ancho > 0.0f && _alto > 0.0f),
+      _idArma(idArma >= 0 ? idArma : 0),
+      _impactosRestantes(std::clamp(maximoImpactos, 1, 6)),
+      _enemigosImpactados{} {
+}
+
+void Proyectil::desviar(float angulo)
+{
+    if (!_activo || !std::isfinite(angulo))
+    {
+        return;
+    }
+    const float direccion = obtenerAngulo() + angulo;
+    const float velocidad = obtenerVelocidad();
+    _velocidadX = std::cos(direccion) * velocidad;
+    _velocidadY = std::sin(direccion) * velocidad;
+}
+
+bool Proyectil::registrarImpacto(std::uint64_t idEnemigo)
+{
+    if (!_activo || idEnemigo == 0 ||
+        std::find(_enemigosImpactados.begin(), _enemigosImpactados.end(), idEnemigo) !=
+            _enemigosImpactados.end())
+    {
+        return false;
+    }
+    --_impactosRestantes;
+    if (_impactosRestantes == 0)
+    {
+        desactivar();
+    }
+    else
+    {
+        _enemigosImpactados.push_back(idEnemigo);
+    }
+    return true;
+}
+
+float Proyectil::obtenerVelocidad() const
+{
+    return std::hypot(_velocidadX, _velocidadY);
+}
+
+int Proyectil::obtenerIdArma() const
+{
+    return _idArma;
 }
 
 void Proyectil::actualizar(float segundos) {

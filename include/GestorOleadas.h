@@ -54,9 +54,11 @@ class GestorOleadas {
         // Vacia la lista y reinicia el reloj de partida.
         void reiniciar();
 
-        // Para dibujar y para las colisiones. Es solo lectura: los enemigos
-        // se modifican unicamente desde actualizar().
+        // Consulta de solo lectura para dibujar y revisar colisiones.
         const std::vector<Enemigo>& obtenerEnemigos() const;
+
+        // Para aplicar dano individual. No modificar la lista durante un recorrido.
+        std::vector<Enemigo>& obtenerEnemigos();
 
         std::size_t cantidadEnemigos() const;
 

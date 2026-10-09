@@ -62,6 +62,11 @@ std::size_t GestorOleadas::cantidadEnemigos() const {
     return enemigos.size();
 }
 
+std::vector<Enemigo>& GestorOleadas::obtenerEnemigos()
+{
+    return enemigos;
+}
+
 void GestorOleadas::danarATodos(int cantidad) {
     for (Enemigo& enemigo : enemigos) {
         enemigo.recibirDanio(cantidad);

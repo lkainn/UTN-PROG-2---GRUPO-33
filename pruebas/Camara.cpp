@@ -4,6 +4,8 @@
 #include <vector>
 #include <iostream>
 #include <limits>
+#include <cmath>
+#include "GestorOleadas.h"
 #include "Arma.h"
 #include "Enemigo.h"
 #include "Jugador.h"
@@ -93,16 +95,15 @@ int main()
     correcto &= comprobar(juego._proyectiles.size() == 1 &&
                           juego._proyectiles.front().obtenerPosicion().x == 6100.0f,
                           "limpieza de proyectiles usa area visible desplazada");
-    for (std::size_t i = 0; i < juego.enemigosPrueba.size(); ++i)
-    {
-        juego.enemigosPrueba[i].recibirDanio(999);
-        juego.tiemposReaparicion[i] = 0.0f;
-    }
-    juego.actualizarEnemigos(0.01f);
-    correcto &= comprobar(juego.enemigosPrueba[0].obtenerPosicion().x == 7480.0f &&
-                          juego.enemigosPrueba[0].obtenerPosicion().y == 3660.0f,
-                          "enemigos reaparecen respecto al jugador desplazado");
-    juego.dibujar();
+    juego._gestorOleadas.reiniciar();
+    juego.actualizarEnemigos(1.5f);
+    const Enemigo& aparecido = juego._gestorOleadas.obtenerEnemigos().front();
+    const FormaColision forma = aparecido.obtenerFormaColision();
+    const float distancia = std::hypot(
+        forma.x + forma.ancho / 2.0f - 7000.0f,
+        forma.y + forma.alto / 2.0f - 4000.0f);
+    correcto &= comprobar(distancia > 400.0f && distancia < 800.0f,
+                          "enemigos aparecen respecto al jugador desplazado");    juego.dibujar();
     correcto &= comprobar(juego.ventana.getView().getCenter() ==
                           juego.ventana.getDefaultView().getCenter(),
                           "interfaz restaura vista fija");
