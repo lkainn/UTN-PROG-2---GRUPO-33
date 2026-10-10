@@ -2,8 +2,17 @@
 #include <cstring>
 #include <cmath>
 
+// Arranca en 1 y no en 0 a proposito: Proyectil::registrarImpacto descarta el
+// identificador 0, asi que un enemigo con ese id nunca recibiria impactos.
+std::uint64_t Enemigo::siguienteIdInstancia = 1;
+
 // Iniciamos el constructor
 Enemigo::Enemigo(int _idEnemigo, float _x, float _y, float _ancho, float _alto, float _velocidad, int _vida, int _dano, const char* _nombre, int _experienciaOtorgada, int _chatarraOtorgada){
+    // Se toma el numero libre y se deja el siguiente listo para el proximo
+    // enemigo que se cree.
+    idInstancia = siguienteIdInstancia;
+    siguienteIdInstancia++;
+
     idEnemigo = _idEnemigo;
     x = _x;
     y = _y;
@@ -73,6 +82,10 @@ FormaColision Enemigo::obtenerFormaColision()const{
 // Enemigos.dat.
 int Enemigo::obtenerIdEnemigo() const {
     return idEnemigo;
+}
+
+std::uint64_t Enemigo::obtenerIdInstancia() const {
+    return idInstancia;
 }
 
 int Enemigo::obtenerDano() const {
