@@ -3,6 +3,7 @@
 #include "Arma.h"
 #include "AspectoProyectiles.h"
 #include "AspectoArmas.h"
+#include "AspectoEncuentros.h"
 #include "GestorOleadas.h"
 #include "Escenario.h"
 #include "EstacionMejoras.h"
@@ -25,6 +26,19 @@ public:
     void ejecutar();
 
 private:
+    enum class EstadoJuego
+    {
+        Menu,
+        Controles,
+        Jugando,
+        Pausa
+    };
+    EstadoJuego _estado = EstadoJuego::Menu;
+    int _opcionMenu = 0;
+    void manejarEscape();
+    void procesarEntradaMenu(sf::Keyboard::Scancode tecla);
+    void dibujarMenuPrincipal();
+
     enum class TipoArmaPrueba
     {
         Pistola,
@@ -75,6 +89,7 @@ private:
     std::uint64_t _siguienteIdEnemigo = 1;
     AspectoProyectiles _aspectoProyectiles;
     AspectoArmas _aspectoArmas;
+    AspectoEncuentros _aspectoEncuentros;
     float _anguloArma = 0.0f;
     std::vector<Proyectil> _proyectiles;
     Arma armaPrueba;
