@@ -130,6 +130,7 @@ int main()
         "estaciones aparecen aproximadamente 15% por zona");
 
     Juego juego;
+    juego._estado = Juego::EstadoJuego::Jugando;
     juego.ventana.setVisible(false);
     juego._generador.seed(314);
     juego._encuentros = EncuentroAleatorio(42);
@@ -144,12 +145,28 @@ int main()
     juego.dibujarEstacionMejoras(visible);
     sf::Texture captura(juego.ventana.getSize());
     captura.update(juego.ventana);
-    const sf::Vector2i pixel = juego.ventana.mapCoordsToPixel(
-        {visible.posicion.x, visible.posicion.y - 15.0f});
     const sf::Image imagen = captura.copyToImage();
-correcto &= comprobar(imagen.getPixel({static_cast<unsigned int>(pixel.x),
-        static_cast<unsigned int>(pixel.y)}) == sf::Color(30, 125, 100),
-        "pantalla de estacion se dibuja en su posicion real");
+    int pixelesPantalla = 0;
+    for (int y = -92; y < 28; ++y)
+    {
+        for (int x = -48; x < 48; ++x)
+        {
+            const sf::Vector2i pixel = juego.ventana.mapCoordsToPixel(
+                {visible.posicion.x + x, visible.posicion.y + y});
+            const sf::Color color = imagen.getPixel(
+                {static_cast<unsigned int>(pixel.x), static_cast<unsigned int>(pixel.y)});
+            if (color.g > color.r + 30 && color.g > color.b + 30)
+            {
+                ++pixelesPantalla;
+            }
+        }
+    }
+    const sf::Vector2i posicionAntigua = juego.ventana.mapCoordsToPixel(
+        {visible.posicion.x + 700.0f, visible.posicion.y});
+    correcto &= comprobar(pixelesPantalla > 5 &&
+        imagen.getPixel({static_cast<unsigned int>(posicionAntigua.x),
+            static_cast<unsigned int>(posicionAntigua.y)}) == sf::Color::Magenta,
+        "terminal verde se dibuja en el encuentro y no en la posicion antigua");
     ObjetoEncuentro* cofre = siguiente(juego, TipoEncuentro::Cofre);
     juego.intentarAbrirCofre();
     correcto &= comprobar(!cofre->usado && juego._costoCofre == 15, "sin saldo no consume ni aumenta precio");

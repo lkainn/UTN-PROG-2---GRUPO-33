@@ -68,6 +68,24 @@ recursos: celeste para experiencia y amarillo para chatarra. Se recogen al
 acercarse a 90 px; la cantidad obtenida aparece junto al personaje y los
 acumulados se muestran en la interfaz.
 
+### Menú inicial
+
+Al abrir el juego aparece el menú con Jugar, Controles y Salir. Las flechas
+arriba y abajo seleccionan una opción y Enter la confirma. Desde Controles,
+Enter o Escape vuelven al menú. El combate comienza al elegir Jugar.
+Escape desde el menú principal cierra la ventana.
+
+La primera versión usa la fuente existente y formas de SFML; no requiere
+imágenes nuevas. No incluye todavía perfiles ni guardado.
+
+Durante la partida, Escape abre el menú de pausa con Continuar y Salir.
+Flechas y Enter seleccionan la acción; Escape también permite continuar.
+La pausa conserva la partida y detiene movimiento, daño, disparos y oleadas.
+Si una estación está abierta, Escape cancela primero la compra y devuelve
+el pago; otro Escape abre la pausa.
+
+La prueba del menú se ejecuta con pruebas/probar_menu_principal.bat.
+
 ### Controles
 
 | Tecla | Acción |
@@ -77,7 +95,7 @@ acumulados se muestran en la interfaz.
 | 1 / 2 | Seleccionar un slot de arma fuera del menú |
 | 1 / 2 / 3 | Elegir una oferta de la estación |
 | 1 / 2 en la confirmación | Confirmar el reemplazo de pistola / volver a las ofertas |
-| Escape | Cancelar una compra pendiente y devolver el pago; fuera del menú, cerrar la ventana |
+| Escape | Cancelar una compra pendiente y devolver el pago; durante el juego, abrir pausa; en pausa, continuar |
 | R | Reiniciar la prueba conservando inventario, mejoras, precios y encuentros usados |
 | K | Recibir 20 de daño para pruebas, fuera del menú |
 | E | Obtener 40 de experiencia para pruebas, fuera del menú |
@@ -115,6 +133,17 @@ a los ejes. Si falta una textura, se dibuja un rectángulo de respaldo.
 
 Ver [mecánicas de las armas nuevas](documentos/guia_escopeta_canon_energia.md)
 y [integración de gráficos](documentos/guia_graficos_armas_nuevas.md).
+
+### Graficos de encuentros industriales
+
+Los cofres se representan en pantalla como contenedores de suministros de
+acero, con estados cerrado y vacio. Las estaciones utilizan terminales con
+pantalla verde que se apaga tras la compra. Ambos mantienen sus reglas de
+interaccion, precios y recompensas.
+
+Los PNG se cargan una vez y se dibujan sin suavizado; si faltan, se usan
+formas industriales de respaldo. Ver [diseno y prompts](recursos/encuentros/diseno.md).
+La prueba grafica es pruebas/probar_aspecto_encuentros.bat.
 
 ### Estaciones, rarezas y cofres
 

@@ -67,6 +67,7 @@ void Jugador::actualizar(bool limitarALaVentana)
 
 void Jugador::recibirDano(int cantidad) {  // Se resta el dano en la variable
     if (!_vivo || cantidad <= 0) return;  // Se valida si el jugador esta muerto o si la cantidad recibida no es valida
+
     _vida -= cantidad;
     if (_vida <= 0) {
     _vida = 0;
@@ -74,6 +75,15 @@ void Jugador::recibirDano(int cantidad) {  // Se resta el dano en la variable
     _formaGrafica.setFillColor(sf::Color(100, 100, 100));  // Color gris al morir prueba
     }
 }
+
+void Jugador::curar(int cantidad) {
+    if (!_vivo || cantidad <= 0) return;
+    _vida += cantidad;
+    if (_vida > _vidaMaxima) {
+        _vida = _vidaMaxima;
+    }
+}
+
 // Algoritmo para procesar la subida de niveles
 void Jugador::verificarSubidaNivel() {
     while (_experiencia >= _experienciaSiguienteNivel) {
@@ -81,7 +91,7 @@ void Jugador::verificarSubidaNivel() {
     _nivel++;
     _experienciaSiguienteNivel += 50;
     _vidaMaxima += 20;
-    _vida = _vidaMaxima; // Aumenta vida al subir de nivel
+    _vida = _vidaMaxima; // Aumenta vida completa al subir de nivel
     }
 }
 
@@ -95,6 +105,33 @@ void Jugador::ganarChatarra(int cantidad) {
     if (!_vivo || cantidad <=0) return;
     _chatarra += cantidad;
  }
+
+// Metodos para la estacion de prueba
+bool Jugador::gastarChatarra(int cantidad)
+{
+    if (!_vivo || cantidad <= 0 || cantidad > _chatarra)
+    {
+        return false;
+    }
+    _chatarra -= cantidad;
+    return true;
+}
+
+void Jugador::aumentarVidaMaxima(int cantidad)
+{
+    if (_vivo && cantidad > 0 &&
+        _vidaMaxima <= std::numeric_limits<int>::max() - cantidad)
+    {
+        _vidaMaxima += cantidad;
+        _vida += cantidad;
+    }
+}
+
+void Jugador::aumentarVelocidad(float cantidad) {
+    if (cantidad > 0.0f) {
+        _velocidad += cantidad;
+    }
+}
 
 void Jugador::reiniciar() {
     _posicion = {
@@ -111,7 +148,8 @@ void Jugador::dibujar(sf::RenderWindow& ventana){
     ventana.draw(_formaGrafica);
 }
 
-Posicion Jugador::getPosicion() const { return _posicion; }
+Posicion Jugador::getPosicion() const {
+    return _posicion; }
 
 FormaColision Jugador::getFormaColision() const {
     sf::Vector2f tam = _formaGrafica.getSize();
@@ -122,8 +160,20 @@ int Jugador::getVida() const { return _vida; }
 int Jugador::getVidaMaxima() const { return _vidaMaxima; }
 int Jugador::getNivel() const { return _nivel; }
 int Jugador::getExperiencia() const { return _experiencia; }
+int Jugador::getExperienciaSiguienteNivel() const { return _experienciaSiguienteNivel; }
 int Jugador::getChatarra() const { return _chatarra; }
+float Jugador::getVelocidad() const { return _velocidad; }
 bool Jugador::estaVivo() const { return _vivo; }
+
+float Jugador::getPorcentajeVida() const {
+    if (_vidaMaxima <= 0) return 0.0f;
+    return static_cast<float>(_vida) / static_cast<float>(_vidaMaxima);
+}
+
+float Jugador::getPorcentajeExperiencia() const {
+    if (_experienciaSiguienteNivel <= 0) return 0.0f;
+    return static_cast<float>(_experiencia) / static_cast<float>(_experienciaSiguienteNivel);
+}
 
 void Jugador::setPosicion(Posicion pos) {
     _posicion = pos;
@@ -173,27 +223,5 @@ void Jugador::cargarEstado(int vida, int nivel, int exp, int chatarra) {  // Asi
         else {
             _vivo = false;
             _formaGrafica.setFillColor(sf::Color(100, 100, 100)); // Gris si esta muerto
-}
-}
-
-
-// TEMPORAL: metodos para la estacion de prueba; adaptar al modulo del responsable.
-bool Jugador::gastarChatarra(int cantidad)
-{
-    if (!_vivo || cantidad <= 0 || cantidad > _chatarra)
-    {
-        return false;
-    }
-    _chatarra -= cantidad;
-    return true;
-}
-
-void Jugador::aumentarVidaMaxima(int cantidad)
-{
-    if (_vivo && cantidad > 0 &&
-        _vidaMaxima <= std::numeric_limits<int>::max() - cantidad)
-    {
-        _vidaMaxima += cantidad;
-        _vida += cantidad;
-    }
+        }
 }
