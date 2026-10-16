@@ -3,6 +3,15 @@
 #include <SFML/Graphics.hpp>
 #include "TiposCompartidos.h"
 
+// Estructura para representar las mejoras de progresion
+struct Mejora {
+    int idMejora = 0;
+    char nombre[1] = "";
+    int nivelActual = 0;
+    int nivelMaximo = 1;
+    char descripcion[2] = "";
+    };
+
 class Jugador {
 private:
     Posicion _posicion;
@@ -23,15 +32,14 @@ private:
 public:
     Jugador();
     void procesarEntrada();
-    // TEMPORAL: Juego puede desactivar el limite fijo para probar la camara.
-    // Adaptar esta opcion al modulo del responsable de Jugador cuando se integre.
     void actualizar(bool limitarALaVentana = true);
     void recibirDano(int cantidad);
+    void curar(int cantidad);
     void ganarExperiencia(int cantidad);
     void ganarChatarra(int cantidad);
-    // TEMPORAL: estacion de prueba; adaptar al modulo del responsable de Jugador.
     bool gastarChatarra(int cantidad);
     void aumentarVidaMaxima(int cantidad);
+    void aumentarVelocidad(float cantidad);
     void reiniciar();
     void dibujar(sf::RenderWindow& ventana);
 
@@ -41,8 +49,14 @@ public:
     int getVidaMaxima() const;
     int getNivel() const;
     int getExperiencia() const;
+    int getExperienciaSiguienteNivel() const;
     int getChatarra() const;
+    float getVelocidad() const;
     bool estaVivo() const;
+
+    // Metodos auxiliares para la interfaz grafica
+    float getPorcentajeVida() const;
+    float getPorcentajeExperiencia() const;
 
     void setPosicion(Posicion pos);
     void cargarEstado(int vida, int nivel, int exp, int chatarra);

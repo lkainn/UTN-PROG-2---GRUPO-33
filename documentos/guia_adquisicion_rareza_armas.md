@@ -80,7 +80,7 @@ obtenidas con `floor`, también para las zonas negativas.
 | Confirmación de reemplazo | 1 confirma; 2 vuelve a las mismas tarjetas |
 | Menú abierto | Escape cancela y devuelve el pago sin reiniciar |
 | Reinicio de prueba | R devuelve el pago pendiente y reinicia la simulación |
-| Fuera del menú | Escape cierra la ventana |
+| Durante la partida | Escape abre el menú de pausa; otro Escape continúa |
 
 3 y 4 ya no habilitan armas sin adquirirlas. Solo dispara el arma activa;
 el disparo simultáneo de las dos armas queda para la siguiente etapa.

@@ -91,7 +91,7 @@ bool cargarFuenteDanio(sf::Font& fuente) {
 Juego::Juego()
     : ventana(
           sf::VideoMode({Configuracion::ANCHO_VENTANA, Configuracion::ALTO_VENTANA}),
-          "WASD: mover | Disparo automatico | K: dano | E: experiencia"),
+          "Scrap Protocol"),
       _escenario{},
       _gestorOleadas{},
       _aspectoProyectiles{},
@@ -115,6 +115,10 @@ Juego::Juego()
 void Juego::ejecutar() {
     while (ventana.isOpen()) {
         procesarEventos();
+        if (!ventana.isOpen())
+        {
+            break;
+        }
         actualizar();
         dibujar();
     }
@@ -127,15 +131,13 @@ void Juego::procesarEventos() {
         }
 
         if (const auto* tecla = evento->getIf<sf::Event::KeyPressed>()) {
+            if (_estado != EstadoJuego::Jugando)
+            {
+                procesarEntradaMenu(tecla->scancode);
+                continue;
+            }
             if (tecla->scancode == sf::Keyboard::Scancode::Escape) {
-                if (_estacionMejoras.menuAbierto())
-                {
-                    cancelarCompraEstacion();
-                }
-                else
-                {
-                    ventana.close();
-                }
+                manejarEscape();
             } else if (tecla->scancode == sf::Keyboard::Scancode::R) {
                 reiniciarPrueba();
             } else if (_estacionMejoras.menuAbierto()) {
@@ -189,6 +191,11 @@ void Juego::procesarEventos() {
 }
 
 void Juego::actualizar() {
+    if (_estado != EstadoJuego::Jugando)
+    {
+        relojFotogramas.restart();
+        return;
+    }
     // Limitar el salto reduce el riesgo de atravesar al enemigo si la ventana se pausa.
     const float segundos = std::min(relojFotogramas.restart().asSeconds(), 0.05f);
     if (_estacionMejoras.menuAbierto())
@@ -395,6 +402,11 @@ void Juego::actualizarProyectiles(float segundos)
         _proyectiles.end());
 }
 void Juego::dibujar() {
+    if (_estado != EstadoJuego::Jugando)
+    {
+        dibujarMenuPrincipal();
+        return;
+    }
     ventana.setView(_escenario.obtenerVista());
     ventana.clear(sf::Color(28, 31, 36));
     _escenario.dibujar(ventana);
@@ -500,59 +512,89 @@ void Juego::dibujarInterfaz() {
         return;
     }
 
-    sf::RectangleShape fondo({1250.0f, 44.0f});
-    fondo.setPosition({14.0f, 14.0f});
-    fondo.setFillColor(sf::Color(8, 10, 14, 190));
+    sf::RectangleShape fondo({1250.0f, 58.0f});
+    fondo.setPosition({14.0f, 12.0f});
+    fondo.setFillColor(sf::Color(8, 10, 14, 215));
     fondo.setOutlineColor(sf::Color(110, 120, 135));
     fondo.setOutlineThickness(1.0f);
     ventana.draw(fondo);
 
-    sf::Text nivel(
-        fuenteDanio, "NIVEL: " + std::to_string(jugador.getNivel()), 22);
-    nivel.setPosition({26.0f, 22.0f});
-    nivel.setFillColor(sf::Color(235, 235, 235));
-    ventana.draw(nivel);
+    // barra de vida grafica
+    float anchoBarraVida = 200.0f;
+    sf::RectangleShape fondoVida({anchoBarraVida, 18.0f});
+    fondoVida.setPosition({26.0f, 18.0f});
+    fondoVida.setFillColor(sf::Color(100, 20, 20));
+    ventana.draw(fondoVida);
 
-    sf::Text experiencia(
-        fuenteDanio, "EXP: " + std::to_string(jugador.getExperiencia()), 22);
-    experiencia.setPosition({170.0f, 22.0f});
-    experiencia.setFillColor(sf::Color(70, 220, 255));
-    ventana.draw(experiencia);
+    sf::RectangleShape rellenoVida({anchoBarraVida * jugador.getPorcentajeVida(), 18.0f});
+    rellenoVida.setPosition({26.0f, 18.0f});
+    rellenoVida.setFillColor(sf::Color(50, 205, 50));
+    ventana.draw(rellenoVida);
 
-    sf::Text chatarra(
-        fuenteDanio, "CHATARRA: " + std::to_string(jugador.getChatarra()), 22);
-    chatarra.setPosition({330.0f, 22.0f});
+    // Texto sobre la barra de vida
+    sf::Text textoVida(fuenteDanio, "VIDA: " + std::to_string(jugador.getVida()) + "/" + std::to_string(jugador.getVidaMaxima()), 13);
+    textoVida.setPosition({32.0f, 19.0f});
+    textoVida.setFillColor(sf::Color::White);
+    ventana.draw(textoVida);
+
+    // Barra de experiencia grafica
+    float anchoBarraExp = 200.0f;
+    sf::RectangleShape fondoExp({anchoBarraExp, 18.0f});
+    fondoExp.setPosition({26.0f, 42.0f});
+    fondoExp.setFillColor(sf::Color(35, 40, 55));
+    ventana.draw(fondoExp);
+
+    sf::RectangleShape rellenoExp({anchoBarraExp * jugador.getPorcentajeExperiencia(), 18.0f});
+    rellenoExp.setPosition({26.0f, 42.0f});
+    rellenoExp.setFillColor(sf::Color(60, 180, 240));
+    ventana.draw(rellenoExp);
+
+    sf::Text textoNivel(fuenteDanio, "NIVEL: " + std::to_string(jugador.getNivel()), 17);
+    textoNivel.setPosition({1185.0f, 17.0f});
+    textoNivel.setFillColor(sf::Color(255, 235, 100));
+    ventana.draw(textoNivel);
+
+    sf::Text textoExp(fuenteDanio, "EXP: " + std::to_string(jugador.getExperiencia()) + " / " + std::to_string(jugador.getExperienciaSiguienteNivel()), 13);
+    textoExp.setPosition({32.0f, 43.0f});
+    textoExp.setFillColor(sf::Color::White);
+    ventana.draw(textoExp);
+
+    sf::Text chatarra(fuenteDanio, "CHATARRA: " + std::to_string(jugador.getChatarra()), 17);
+    chatarra.setPosition({295.0f, 17.0f});
     chatarra.setFillColor(sf::Color(255, 190, 55));
     ventana.draw(chatarra);
 
-    sf::Text nombreArma(
-        fuenteDanio,
-        "ARMA: " + std::string(obtenerArmaSeleccionada().obtenerNombre()), 22);
-    nombreArma.setPosition({580.0f, 22.0f});
+    sf::Text nombreArma(fuenteDanio, "ARMA: " + std::string(obtenerArmaSeleccionada().obtenerNombre()), 17);
+    nombreArma.setPosition({480.0f, 17.0f});
     nombreArma.setFillColor(sf::Color(235, 235, 235));
     ventana.draw(nombreArma);
+
     sf::Text oleada(
         fuenteDanio, "OLEADA: " + std::to_string(_gestorOleadas.oleadaActual()) +
         " | TIEMPO: " + std::to_string(static_cast<int>(_gestorOleadas.tiempoDePartida())) +
-        " s", 22);
-    oleada.setPosition({900.0f, 22.0f});
+        " s", 17);
+    oleada.setPosition({810.0f, 17.0f});
     ventana.draw(oleada);
-    std::string slots = "1: " + std::string(InventarioArmas::obtenerNombreArma(_inventarioArmas.obtenerIdSlot(0))) +
-        (_inventarioArmas.obtenerIdSlot(0) == 1 ? " (reemplazable)" : " (fija)") +
-        " | 2: " + InventarioArmas::obtenerNombreArma(_inventarioArmas.obtenerIdSlot(1));
-    if (_inventarioArmas.obtenerIdSlot(1) != 0)
-    {
-        slots += " (fija)";
+
+std::string slots = "1: " + std::string(InventarioArmas::obtenerNombreArma(_inventarioArmas.obtenerIdSlot(0)));
+if (_inventarioArmas.obtenerIdSlot(0) == 1) {
+        slots += " (reemplazable)";
+} else {
+    slots += " (fija)"; }
+    slots += " | 2: " + std::string(InventarioArmas::obtenerNombreArma(_inventarioArmas.obtenerIdSlot(1)));
+    if (_inventarioArmas.obtenerIdSlot(1) != 0) {
+            slots += " (fija)";
     }
-    sf::Text inventario(fuenteDanio, slots, 20);
-    inventario.setPosition({26.0f, 60.0f});
-    inventario.setOutlineThickness(2.0f);
-    inventario.setOutlineColor(sf::Color::Black);
+
+    sf::Text inventario(fuenteDanio, slots, 15);
+    inventario.setPosition({480.0f, 41.0f});
+    inventario.setFillColor(sf::Color(200, 220, 245));
     ventana.draw(inventario);
+
     if (_tiempoMensajeCofre > 0.0f)
     {
-        sf::Text mensaje(fuenteDanio, _mensajeCofre, 26);
-        mensaje.setPosition({26.0f, 92.0f});
+        sf::Text mensaje(fuenteDanio, _mensajeCofre, 20);
+        mensaje.setPosition({26.0f, 78.0f});
         mensaje.setFillColor(sf::Color(255, 215, 90));
         mensaje.setOutlineThickness(2.0f);
         mensaje.setOutlineColor(sf::Color::Black);
@@ -616,12 +658,12 @@ void Juego::intentarAbrirCofre()
     if (experienciaDisponible && std::uniform_int_distribution<int>(0, 1)(_generador) == 0)
     {
         jugador.ganarExperiencia(40);
-        _mensajeCofre = "COFRE: +40 experiencia para el personaje";
+        _mensajeCofre = "CONTENEDOR: +40 experiencia para el personaje";
     }
     else
     {
         jugador.aumentarVidaMaxima(20);
-        _mensajeCofre = "COFRE: Blindaje +20 vida maxima y actual";
+        _mensajeCofre = "CONTENEDOR: Blindaje +20 vida maxima y actual";
     }
     cofre->usado = true;
     const long long siguienteCosto = (static_cast<long long>(_costoCofre) * 8 + 4) / 5;
@@ -679,38 +721,18 @@ void Juego::dibujarCofre(const ObjetoEncuentro& objeto)
         jugador.getPosicion(), posicion, 100.0f);
     const bool disponible = !objeto.usado && hayRecompensaCofre();
     const bool puedeAbrir = disponible && jugador.estaVivo() && jugador.getChatarra() >= _costoCofre;
-    sf::RectangleShape cuerpo({64.0f, 42.0f});
-    cuerpo.setOrigin({32.0f, 21.0f});
-    cuerpo.setPosition({posicion.x, posicion.y});
-    cuerpo.setFillColor(objeto.usado ? sf::Color(45, 32, 24) : sf::Color(115, 75, 40));
-    cuerpo.setOutlineThickness(cerca ? 3.0f : 1.0f);
-    cuerpo.setOutlineColor(puedeAbrir ? sf::Color(255, 220, 95) : sf::Color(150, 150, 150));
-    ventana.draw(cuerpo);
-    if (objeto.usado)
-    {
-        sf::RectangleShape tapa({64.0f, 12.0f});
-        tapa.setPosition({posicion.x - 32.0f, posicion.y - 38.0f});
-        tapa.setFillColor(sf::Color(100, 65, 35));
-        ventana.draw(tapa);
-    }
-    else
-    {
-        sf::RectangleShape cerradura({12.0f, 18.0f});
-        cerradura.setPosition({posicion.x - 6.0f, posicion.y - 9.0f});
-        cerradura.setFillColor(sf::Color(225, 175, 65));
-        ventana.draw(cerradura);
-    }
+    _aspectoEncuentros.dibujar(ventana, objeto, cerca, puedeAbrir);
     if (fuenteDanioDisponible)
     {
-        std::string etiqueta = objeto.usado ? "COFRE ABIERTO - VACIO" :
-            "COFRE: " + std::to_string(_costoCofre) + " CHATARRA";
+        std::string etiqueta = objeto.usado ? "CONTENEDOR VACIO" :
+            "CONTENEDOR: " + std::to_string(_costoCofre) + " CHATARRA";
         if (cerca && !objeto.usado)
         {
-            etiqueta += !disponible ? " | Arma al maximo" :
+            etiqueta += !disponible ? " | Sin recompensa disponible" :
                 (puedeAbrir ? " | F: abrir" : " | Falta chatarra");
         }
         sf::Text texto(fuenteDanio, etiqueta, 18);
-        texto.setPosition({posicion.x - 100.0f, posicion.y + 35.0f});
+        texto.setPosition({posicion.x - 100.0f, posicion.y + 40.0f});
         texto.setOutlineThickness(1.0f);
         texto.setOutlineColor(sf::Color::Black);
         ventana.draw(texto);
@@ -891,7 +913,7 @@ void Juego::reiniciarPrueba() {
     indicadoresRecurso.clear();
     tiempoRestanteDanoContacto = 0.0f;
     ventana.setTitle(
-        "WASD: mover | F: estacion/cofre | 1/2: slots de armas | R: reiniciar prueba");
+        "WASD: mover | F: estacion/contenedor | 1/2: slots de armas | R: reiniciar prueba");
     relojFotogramas.restart();
 }
 
@@ -962,7 +984,7 @@ void Juego::finalizarCompraEstacion(std::size_t indice, bool confirmarReemplazo)
     _estacionSeleccionada->usado = true;
     _estacionSeleccionada = nullptr;
     _opcionReemplazo = 3;
-    ventana.setTitle("WASD: mover | F: estacion/cofre | 1/2: slots de armas | R: reiniciar prueba");
+    ventana.setTitle("WASD: mover | F: estacion/contenedor | 1/2: slots de armas | R: reiniciar prueba");
     relojFotogramas.restart();
 }
 
@@ -976,7 +998,7 @@ void Juego::cancelarCompraEstacion()
     _estacionMejoras.cancelarCompra();
     _estacionSeleccionada = nullptr;
     _opcionReemplazo = 3;
-    ventana.setTitle("WASD: mover | F: estacion/cofre | 1/2: slots de armas | R: reiniciar prueba");
+    ventana.setTitle("WASD: mover | F: estacion/contenedor | 1/2: slots de armas | R: reiniciar prueba");
     relojFotogramas.restart();
 }
 
@@ -986,21 +1008,7 @@ void Juego::dibujarEstacionMejoras(const ObjetoEncuentro& objeto)
     const bool cerca = SistemaColisiones::estaDentroDeRadio(jugador.getPosicion(), posicion, 100.0f);
     const bool puedeComprar = !objeto.usado && cerca && jugador.estaVivo() &&
         !_estacionMejoras.menuAbierto() && jugador.getChatarra() >= _estacionMejoras.obtenerCosto();
-    sf::RectangleShape cuerpo({56.0f, 68.0f});
-    cuerpo.setOrigin({28.0f, 34.0f});
-    cuerpo.setPosition({posicion.x, posicion.y});
-    cuerpo.setFillColor(sf::Color(55, 67, 72));
-    cuerpo.setOutlineThickness(cerca ? 3.0f : 1.0f);
-    cuerpo.setOutlineColor(puedeComprar ? sf::Color(85, 235, 165) : sf::Color(185, 135, 65));
-    ventana.draw(cuerpo);
-    sf::RectangleShape pantalla({36.0f, 24.0f});
-    pantalla.setPosition({posicion.x - 18.0f, posicion.y - 23.0f});
-    pantalla.setFillColor(objeto.usado ? sf::Color(15, 22, 24) : sf::Color(30, 125, 100));
-    ventana.draw(pantalla);
-    sf::RectangleShape ranura({30.0f, 5.0f});
-    ranura.setPosition({posicion.x - 15.0f, posicion.y + 14.0f});
-    ranura.setFillColor(sf::Color(15, 20, 24));
-    ventana.draw(ranura);
+    _aspectoEncuentros.dibujar(ventana, objeto, cerca, puedeComprar);
     if (fuenteDanioDisponible)
     {
         std::string etiqueta = objeto.usado ? "ESTACION APAGADA - USADA" :
@@ -1083,4 +1091,161 @@ void Juego::dibujarMenuEstacion()
         "Partida en pausa | 1 / 2 / 3: elegir | Escape: devolver pago | R: reiniciar prueba", 22);
     ayuda.setPosition({300.0f, 810.0f});
     ventana.draw(ayuda);
+}
+
+void Juego::manejarEscape()
+{
+    if (_estado == EstadoJuego::Pausa)
+    {
+        _estado = EstadoJuego::Jugando;
+        relojFotogramas.restart();
+    }
+    else if (_estado == EstadoJuego::Jugando)
+    {
+        if (_estacionMejoras.menuAbierto())
+        {
+            cancelarCompraEstacion();
+        }
+        else
+        {
+            _estado = EstadoJuego::Pausa;
+            _opcionMenu = 0;
+        }
+    }
+}
+
+void Juego::procesarEntradaMenu(sf::Keyboard::Scancode tecla)
+{
+    if (_estado == EstadoJuego::Controles)
+    {
+        if (tecla == sf::Keyboard::Scancode::Escape ||
+            tecla == sf::Keyboard::Scancode::Enter)
+        {
+            _estado = EstadoJuego::Menu;
+        }
+        return;
+    }
+    const int cantidadOpciones = _estado == EstadoJuego::Pausa ? 2 : 3;
+    if (tecla == sf::Keyboard::Scancode::Up)
+    {
+        _opcionMenu = (_opcionMenu + cantidadOpciones - 1) % cantidadOpciones;
+    }
+    else if (tecla == sf::Keyboard::Scancode::Down)
+    {
+        _opcionMenu = (_opcionMenu + 1) % cantidadOpciones;
+    }
+    else if (tecla == sf::Keyboard::Scancode::Escape)
+    {
+        if (_estado == EstadoJuego::Pausa)
+        {
+            manejarEscape();
+        }
+        else
+        {
+            ventana.close();
+        }
+    }
+    else if (tecla == sf::Keyboard::Scancode::Enter)
+    {
+        if (_opcionMenu == 0)
+        {
+            _estado = EstadoJuego::Jugando;
+            relojFotogramas.restart();
+        }
+        else if (_opcionMenu == 1 && _estado == EstadoJuego::Menu)
+        {
+            _estado = EstadoJuego::Controles;
+        }
+        else
+        {
+            ventana.close();
+        }
+    }
+}
+
+void Juego::dibujarMenuPrincipal()
+{
+    ventana.setView(ventana.getDefaultView());
+    ventana.clear(sf::Color(18, 23, 29));
+    const sf::Vector2f tamanio = ventana.getDefaultView().getSize();
+    const float centroX = tamanio.x / 2.0f;
+    sf::RectangleShape panel({760.0f, 760.0f});
+    panel.setPosition({centroX - 380.0f, tamanio.y / 2.0f - 380.0f});
+    panel.setFillColor(sf::Color(28, 35, 43));
+    panel.setOutlineThickness(2.0f);
+    panel.setOutlineColor(sf::Color(75, 92, 103));
+    ventana.draw(panel);
+    if (fuenteDanioDisponible)
+    {
+        const bool esPausa = _estado == EstadoJuego::Pausa;
+        sf::Text texto(fuenteDanio, esPausa ? "PAUSA" : "SCRAP PROTOCOL", 56);
+        texto.setFillColor(sf::Color(255, 190, 55));
+        const sf::FloatRect limites = texto.getLocalBounds();
+        texto.setOrigin({limites.position.x + limites.size.x / 2.0f,
+                         limites.position.y});
+        texto.setPosition({centroX, tamanio.y / 2.0f - 300.0f});
+        ventana.draw(texto);
+        if (_estado == EstadoJuego::Menu || esPausa)
+        {
+            const std::array<const char*, 3> OPCIONES = esPausa ?
+                std::array<const char*, 3>{{"CONTINUAR", "SALIR", ""}} :
+                std::array<const char*, 3>{{"JUGAR", "CONTROLES", "SALIR"}};
+            const int cantidadOpciones = esPausa ? 2 : 3;
+            for (int indice = 0; indice < cantidadOpciones; ++indice)
+            {
+                const float alto = tamanio.y / 2.0f - 100.0f + indice * 110.0f;
+                const bool seleccionada = indice == _opcionMenu;
+                sf::RectangleShape boton({560.0f, 80.0f});
+                boton.setPosition({centroX - 280.0f, alto});
+                boton.setFillColor(seleccionada ? sf::Color(255, 190, 55) :
+                                                 sf::Color(40, 50, 61));
+                ventana.draw(boton);
+                texto.setString(OPCIONES[indice]);
+                texto.setCharacterSize(32);
+                texto.setFillColor(seleccionada ? sf::Color(18, 23, 29) :
+                                                 sf::Color(220, 230, 235));
+                const sf::FloatRect area = texto.getLocalBounds();
+                texto.setOrigin({area.position.x + area.size.x / 2.0f,
+                                 area.position.y + area.size.y / 2.0f});
+                texto.setPosition({centroX, alto + 40.0f});
+                ventana.draw(texto);
+            }
+        }
+        else
+        {
+            const std::array<const char*, 7> CONTROLES{{
+                "WASD: mover",
+                "Ataque automatico al enemigo cercano",
+                "F: interactuar con estaciones y contenedores",
+                "1 / 2: elegir arma   |   1 / 2 / 3: ofertas",
+                "Escape: cancelar compra o pausar",
+                "Prueba: R reinicia, K recibe dano, E da experiencia",
+                "Enter o Escape: volver"
+            }};
+            texto.setCharacterSize(24);
+            texto.setFillColor(sf::Color(220, 230, 235));
+            for (std::size_t indice = 0; indice < CONTROLES.size(); ++indice)
+            {
+                texto.setString(CONTROLES[indice]);
+                const sf::FloatRect area = texto.getLocalBounds();
+                texto.setOrigin({area.position.x + area.size.x / 2.0f,
+                                 area.position.y});
+                texto.setPosition({centroX, tamanio.y / 2.0f - 120.0f + indice * 55.0f});
+                ventana.draw(texto);
+            }
+        }
+        if (_estado == EstadoJuego::Menu || esPausa)
+        {
+            texto.setString(esPausa ?
+                "Flechas: elegir | Enter: confirmar | Escape: continuar" :
+                "Flechas: elegir   |   Enter: confirmar");
+            texto.setCharacterSize(24);
+            texto.setFillColor(sf::Color(150, 170, 183));
+            const sf::FloatRect area = texto.getLocalBounds();
+            texto.setOrigin({area.position.x + area.size.x / 2.0f, area.position.y});
+            texto.setPosition({centroX, tamanio.y / 2.0f + 290.0f});
+            ventana.draw(texto);
+        }
+    }
+    ventana.display();
 }
