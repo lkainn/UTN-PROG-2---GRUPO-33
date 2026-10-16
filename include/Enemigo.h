@@ -7,7 +7,8 @@
 enum TipoEnemigo { // Diferentes tipos de enemigo
     BASICO,
     RAPIDO,
-    RESISTENTE
+    RESISTENTE,
+    JEFE        // aparece una sola vez por partida; derrotarlo es la victoria
 };
 
 class Enemigo {

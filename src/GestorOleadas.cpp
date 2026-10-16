@@ -17,6 +17,11 @@ const std::size_t GestorOleadas::MAXIMO_VIVOS_FINAL = 60;
 const float GestorOleadas::SEGUNDOS_APARECE_RAPIDO = 60.0f;
 const float GestorOleadas::SEGUNDOS_APARECE_RESISTENTE = 180.0f;
 
+// El jefe aparece justo cuando la curva de dificultad llega a su maximo.
+const float GestorOleadas::SEGUNDOS_APARECE_JEFE = 300.0f;
+const float GestorOleadas::SEGUNDOS_AVISO_JEFE = 5.0f;
+const float GestorOleadas::FACTOR_INTERVALO_CON_JEFE = 2.0f;
+
 namespace {
 
 // Dos veces pi: una vuelta completa en radianes, que es la unidad que usan
@@ -32,19 +37,29 @@ GestorOleadas::GestorOleadas()
       // Semilla fija a proposito: mientras estamos probando conviene que las
       // partidas sean repetibles. Para que cada partida sea distinta se
       // reemplaza por std::random_device{}().
-      generador(20261005u) {
+      generador(20261005u),
+      totalEliminados(0),
+      jefeGenerado(false),
+      jefeDerrotado(false),
+      idInstanciaJefe(0) {
 }
 
 void GestorOleadas::actualizar(Posicion posicionJugador, float dt) {
     // El reloj de partida es la base de toda la dificultad: cada cuanto
-    // aparecen, cuantos caben a la vez y que variantes estan habilitadas.
+    // aparecen, cuantos caben a la vez, que variantes estan habilitadas y
+    // cuando aparece el jefe.
     tiempoPartida += dt;
 
     // El orden importa. Primero aparecen los nuevos, despues se mueven todos,
     // y al final se limpian los muertos en una pasada aparte: borrar mientras
     // se recorre el vector corrompe el recorrido.
+    generarJefeSiCorresponde(posicionJugador);
     generarSiCorresponde(posicionJugador, dt);
     moverEnemigos(posicionJugador, dt);
+
+    // Va antes de limpiar: una vez que el jefe sale del vector ya no se puede
+    // distinguir si murio o si nunca estuvo.
+    detectarJefeDerrotado();
     quitarMuertos();
 }
 
@@ -52,6 +67,10 @@ void GestorOleadas::reiniciar() {
     enemigos.clear();
     tiempoPartida = 0.0f;
     tiempoAcumulado = 0.0f;
+    totalEliminados = 0;
+    jefeGenerado = false;
+    jefeDerrotado = false;
+    idInstanciaJefe = 0;
 }
 
 const std::vector<Enemigo>& GestorOleadas::obtenerEnemigos() const {
@@ -60,6 +79,10 @@ const std::vector<Enemigo>& GestorOleadas::obtenerEnemigos() const {
 
 std::size_t GestorOleadas::cantidadEnemigos() const {
     return enemigos.size();
+}
+
+int GestorOleadas::enemigosEliminados() const {
+    return totalEliminados;
 }
 
 std::vector<Enemigo>& GestorOleadas::obtenerEnemigos()
@@ -98,7 +121,41 @@ float GestorOleadas::progresoDificultad() const {
 float GestorOleadas::intervaloActual() const {
     const float recorrido =
         INTERVALO_APARICION_INICIAL - INTERVALO_APARICION_MINIMO;
-    return INTERVALO_APARICION_INICIAL - recorrido * progresoDificultad();
+    const float intervalo =
+        INTERVALO_APARICION_INICIAL - recorrido * progresoDificultad();
+
+    // Mientras el jefe esta en el mapa los comunes aparecen mas espaciados:
+    // sumar la pelea contra el jefe al ritmo maximo de oleadas hace la
+    // victoria practicamente imposible.
+    if (jefeEstaVivo()) {
+        return intervalo * FACTOR_INTERVALO_CON_JEFE;
+    }
+    return intervalo;
+}
+
+// Se avisa durante los ultimos segundos previos a la aparicion. Quien dibuja
+// decide como mostrarlo: el gestor solo informa que el momento llego.
+bool GestorOleadas::jefeEnCamino() const {
+    if (jefeGenerado) {
+        return false;
+    }
+    return tiempoPartida >= SEGUNDOS_APARECE_JEFE - SEGUNDOS_AVISO_JEFE;
+}
+
+float GestorOleadas::segundosParaElJefe() const {
+    if (jefeGenerado) {
+        return 0.0f;
+    }
+    const float faltan = SEGUNDOS_APARECE_JEFE - tiempoPartida;
+    return faltan > 0.0f ? faltan : 0.0f;
+}
+
+bool GestorOleadas::jefeEstaVivo() const {
+    return jefeGenerado && !jefeDerrotado;
+}
+
+bool GestorOleadas::jefeFueDerrotado() const {
+    return jefeDerrotado;
 }
 
 // Misma interpolacion, pero al reves: el techo sube de 15 a 60.
@@ -150,6 +207,42 @@ TipoEnemigo GestorOleadas::variantePorAparecer() {
     }
 }
 
+// El jefe aparece una sola vez por partida, al llegar a su minuto. No pasa por
+// el temporizador de los comunes ni por el techo de vivos: si el techo estuviera
+// lleno el jefe nunca saldria y la partida no se podria ganar.
+void GestorOleadas::generarJefeSiCorresponde(Posicion posicionJugador) {
+    if (jefeGenerado || tiempoPartida < SEGUNDOS_APARECE_JEFE) {
+        return;
+    }
+
+    const Posicion aparicion = posicionDeAparicion(posicionJugador);
+    enemigos.push_back(crearEnemigo(JEFE, aparicion.x, aparicion.y));
+
+    // Se guarda su identificador para reconocerlo despues: el vector se
+    // reordena al limpiar muertos, asi que la posicion no sirve como referencia.
+    idInstanciaJefe = enemigos.back().obtenerIdInstancia();
+    jefeGenerado = true;
+}
+
+// El jefe esta derrotado cuando ya no queda ningun enemigo vivo con su
+// identificador. Se consulta antes de quitar los muertos del vector.
+void GestorOleadas::detectarJefeDerrotado() {
+    if (!jefeGenerado || jefeDerrotado) {
+        return;
+    }
+
+    for (const Enemigo& enemigo : enemigos) {
+        if (enemigo.obtenerIdInstancia() == idInstanciaJefe) {
+            if (enemigo.estaVivo()) {
+                return;  // sigue en pie
+            }
+            break;
+        }
+    }
+
+    jefeDerrotado = true;
+}
+
 void GestorOleadas::generarSiCorresponde(Posicion posicionJugador, float dt) {
     // Temporizador por acumulacion: no se puede "esperar" dentro de un juego
     // porque congelaria todo, asi que se suma el tiempo de cada fotograma
@@ -192,10 +285,16 @@ void GestorOleadas::moverEnemigos(Posicion posicionJugador, float dt) {
 void GestorOleadas::quitarMuertos() {
     // remove_if no borra: empuja los muertos al final y devuelve donde empieza
     // esa zona. El erase corta desde ahi hasta el final.
-    enemigos.erase(
+    const std::vector<Enemigo>::iterator primerMuerto =
         std::remove_if(enemigos.begin(), enemigos.end(),
                        [](const Enemigo& enemigo) {
                            return !enemigo.estaVivo();
-                       }),
-        enemigos.end());
+                       });
+
+    // Los que quedaron en la zona de descarte son los que murieron en este
+    // fotograma. Contarlos aca garantiza que cada enemigo se cuente una sola
+    // vez, sin importar que lo haya matado.
+    totalEliminados += (int)std::distance(primerMuerto, enemigos.end());
+
+    enemigos.erase(primerMuerto, enemigos.end());
 }

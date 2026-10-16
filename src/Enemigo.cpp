@@ -132,6 +132,17 @@ Enemigo crearEnemigo(TipoEnemigo tipo, float x, float y){
                            12, 6 // Exp y chatarra
                            );
 
+        case JEFE:
+            return Enemigo(4, // aca ponemos el tipo de enemigo
+                           x, y, // posicion
+                           120.0f, 120.0f, // ancho y alto
+                           85.0f, // velocidad en px por segundo
+                           3000, // vida
+                           35, // danio por contacto
+                           "Jefe chatarrero",
+                           200, 120 // Exp y chatarra
+                           );
+
         case BASICO:
         default: // si llega un tipo desconocido devolvemos el basico
             return Enemigo(1, // aca ponemos el tipo de enemigo
