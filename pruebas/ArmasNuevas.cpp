@@ -87,19 +87,31 @@ int main()
     Juego juego;
     juego.ventana.setVisible(false);
     auto& enemigos = juego._gestorOleadas.obtenerEnemigos();
+    // Estas pruebas aislan cada arma; PartidaIntegrada comprueba ambos slots juntos.
+    const auto dispararSeleccionada = [&juego]()
+    {
+        for (std::size_t slot = 0; slot < 2; ++slot)
+        {
+            if (juego._inventarioArmas.obtenerIdSlot(slot) == juego.obtenerArmaSeleccionada().obtenerId())
+            {
+                juego.dispararArma(slot);
+            }
+        }
+    };
     // Alta en inventario sin sincronizar bonos para aislar el combate base.
     juego._inventarioArmas.aplicarOferta({3, RarezaMejora::Comun, false});
     juego.seleccionarArmaPrueba(Juego::TipoArmaPrueba::Escopeta);
     correcto &= comprobar(juego.obtenerArmaSeleccionada().obtenerId() == 3,
         "escopeta adquirida seleccionable");
+    const Posicion bocaEscopeta = juego._aspectoArmas.obtenerPunta(juego.obtenerAnclajeArma(1), 0.0f, 3);
     for (int indice = 0; indice < 5; ++indice)
     {
         const float angulo = -DISPERSION / 2.0f + DISPERSION * indice / 4.0f;
         const float distancia = indice == 2 ? 190.0f : 200.0f;
-        enemigos.push_back(crearObjetivo(960.0f + std::cos(angulo) * distancia - 4.0f,
-                                        540.0f + std::sin(angulo) * distancia - 4.0f, 12, 8.0f));
+        enemigos.push_back(crearObjetivo(bocaEscopeta.x + std::cos(angulo) * distancia - 4.0f,
+                                        bocaEscopeta.y + std::sin(angulo) * distancia - 4.0f, 12, 8.0f));
     }
-    juego.actualizarDisparoAutomatico();
+    dispararSeleccionada();
     correcto &= comprobar(juego._proyectiles.size() == 5, "Juego genera descarga completa");
     juego.actualizarProyectiles(0.3f);
     bool todosMuertos = true;
@@ -117,7 +129,7 @@ int main()
     {
         enemigos.push_back(crearObjetivo(1060.0f + indice * 100.0f, 512.0f, 60));
     }
-    juego.actualizarDisparoAutomatico();
+    dispararSeleccionada();
     correcto &= comprobar(juego._proyectiles.size() == 1 &&
         juego._proyectiles.front().obtenerIdArma() == 4, "energia crea un proyectil propio");
     juego.actualizarProyectiles(0.5f);
@@ -127,10 +139,10 @@ int main()
     juego.actualizarProyectiles(0.5f);
     correcto &= comprobar(juego.recursosSuelo.size() == 6, "energia eliminada no duplica recompensas");
     juego._canonEnergiaPrueba.actualizar(1.99f);
-    juego.actualizarDisparoAutomatico();
+    dispararSeleccionada();
     correcto &= comprobar(juego._proyectiles.empty(), "energia recarga durante dos segundos");
     juego._canonEnergiaPrueba.actualizar(0.02f);
-    juego.actualizarDisparoAutomatico();
+    dispararSeleccionada();
     correcto &= comprobar(juego._proyectiles.size() == 1, "energia vuelve a disparar al terminar recarga");
 
     juego.reiniciarPrueba();
@@ -139,10 +151,10 @@ int main()
     juego._proyectiles.emplace_back(Posicion{1050.0f, 520.0f}, 0.0f, 0.0f,
                                    40.0f, 10.0f, 60, 4, 3);
     juego.actualizarProyectiles(0.01f);
-    const std::uint64_t idSobreviviente = juego._identificadoresEnemigos[1];
+    const std::uint64_t idSobreviviente = enemigos[1].obtenerIdInstancia();
     enemigos[0].recibirDanio(1);
     juego.actualizarEnemigos(0.01f);
-    correcto &= comprobar(enemigos.size() == 1 && juego._identificadoresEnemigos[0] == idSobreviviente,
+    correcto &= comprobar(enemigos.size() == 1 && enemigos[0].obtenerIdInstancia() == idSobreviviente,
         "compactacion conserva identidad del sobreviviente");
     const std::size_t capacidadAnterior = enemigos.capacity();
     for (std::size_t indice = 0; indice <= capacidadAnterior; ++indice)
@@ -179,11 +191,11 @@ int main()
     juego.reiniciarPrueba();
     correcto &= comprobar(juego.obtenerArmaSeleccionada().obtenerId() == 4 &&
         juego._escopetaPrueba.puedeDisparar() && juego._canonEnergiaPrueba.puedeDisparar() &&
-        juego._proyectiles.empty() && juego._identificadoresEnemigos.empty(),
+        juego._proyectiles.empty(),
         "reinicio limpia disparos e identidades y restaura recargas");
     juego.jugador.recibirDano(999);
     juego.seleccionarArmaPrueba(Juego::TipoArmaPrueba::Escopeta);
-    juego.actualizarDisparoAutomatico();
+    dispararSeleccionada();
     correcto &= comprobar(juego._proyectiles.empty(), "jugador muerto no dispara escopeta");
 
     sf::RenderTexture destino({160, 160});
@@ -219,9 +231,9 @@ int main()
     auto& objetivosMejorados = mejorado._gestorOleadas.obtenerEnemigos();
     for (int indice = 0; indice < 7; ++indice)
     {
-        objetivosMejorados.push_back(crearObjetivo(1050.0f + indice * 60.0f, 512.0f, 105));
+        objetivosMejorados.push_back(crearObjetivo(1050.0f + indice * 60.0f, 528.0f, 105));
     }
-    mejorado.actualizarDisparoAutomatico();
+    mejorado.dispararArma(1);
     mejorado.actualizarProyectiles(0.6f);
     for (int indice = 0; indice < 6; ++indice)
     {

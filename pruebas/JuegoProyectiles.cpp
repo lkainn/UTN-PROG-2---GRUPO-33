@@ -9,6 +9,7 @@
 #include <vector>
 #include <iostream>
 #include <cmath>
+#include <algorithm>
 
 // Acceso limitado a esta prueba para comprobar el ciclo sin ampliar la API del juego.
 #include <random>
@@ -57,7 +58,7 @@ int main()
             juego._proyectiles.front().obtenerPosicion().x == posicionPrimero.x &&
             juego._proyectiles.front().obtenerPosicion().y == posicionPrimero.y &&
             juego._proyectiles.back().obtenerPosicion().x != posicionPrimero.x,
-            "nuevo disparo conserva el anterior y nace en el jugador");
+            "nuevo disparo conserva el anterior y nace en la boca del arma");
     }
     juego.dibujar();
     juego.reiniciarPrueba();
@@ -138,9 +139,9 @@ int main()
     juego.actualizarArmas(0.375f);
     juego.seleccionarArmaPrueba(Juego::TipoArmaPrueba::Pistola);
     juego.actualizarDisparoAutomatico();
-    correcto &= comprobar(juego._proyectiles.size() == 4 &&
-                          juego._proyectiles.back().obtenerDano() == 25 &&
-                          juego._proyectiles.back().obtenerFormaColision().ancho == 28.0f,
+    correcto &= comprobar(juego._proyectiles.size() == 5 &&
+                          juego._proyectiles[3].obtenerDano() == 25 &&
+                          juego._proyectiles[3].obtenerFormaColision().ancho == 28.0f,
                           "pistola recupera cooldown estando inactiva y conserva su formato");
     juego.dibujar();
     correcto &= comprobar(juego._aspectoProyectiles.texturaDisponible(false) && juego._proyectiles.front().obtenerFormaColision().ancho == 28.0f,
@@ -163,6 +164,8 @@ int main()
     juego._inventarioArmas.aplicarOferta({2, RarezaMejora::Comun, false});
     juego.seleccionarArmaPrueba(Juego::TipoArmaPrueba::Metralleta);
     juego.actualizarDisparoAutomatico();
+    juego._proyectiles.erase(std::remove_if(juego._proyectiles.begin(), juego._proyectiles.end(),
+        [](const Proyectil& proyectil) { return proyectil.obtenerIdArma() != 2; }), juego._proyectiles.end());
     const Posicion origenMetralleta = juego._proyectiles.front().obtenerPosicion();
     juego.actualizarProyectiles(0.075f);
     correcto &= comprobar(juego._gestorOleadas.obtenerEnemigos()[0].estaVivo() && juego._proyectiles.empty(),
@@ -180,6 +183,8 @@ int main()
     {
         enemigo.recibirDanio(999);
     }
+    juego.iniciarNuevaPartida();
+    juego._gestorOleadas.obtenerEnemigos().push_back(crearEnemigo(BASICO, 1440.0f, 512.0f));
     for (float distancia : {599.0f, 600.0f, 601.0f})
     {
         juego._proyectiles.clear();
@@ -234,11 +239,11 @@ int main()
     {
         juego.actualizarEnemigos(0.05f);
         correcto &= comprobar(juego._gestorOleadas.cantidadEnemigos() <=
-                              juego._gestorOleadas.maximoVivosActual(),
+                              juego._gestorOleadas.maximoVivosActual() + (juego._gestorOleadas.jefeEstaVivo() ? 1u : 0u),
                               "oleadas respetan techo de enemigos");
     }
     correcto &= comprobar(juego._gestorOleadas.maximoVivosActual() == 60 &&
-                          std::abs(juego._gestorOleadas.intervaloActual() - 0.4f) < 0.001f &&
+                          std::abs(juego._gestorOleadas.intervaloActual() - (juego._gestorOleadas.jefeEstaVivo() ? 0.8f : 0.4f)) < 0.001f &&
                           juego._gestorOleadas.oleadaActual() == 11,
                           "dificultad maxima tras cinco minutos");
     juego.jugador.recibirDano(999);

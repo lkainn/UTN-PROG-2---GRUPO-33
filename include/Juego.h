@@ -9,6 +9,7 @@
 #include "EstacionMejoras.h"
 #include "EncuentroAleatorio.h"
 #include "Jugador.h"
+#include "Partida.h"
 
 #include <SFML/Graphics.hpp>
 
@@ -31,7 +32,8 @@ private:
         Menu,
         Controles,
         Jugando,
-        Pausa
+        Pausa,
+        Resultado
     };
     EstadoJuego _estado = EstadoJuego::Menu;
     int _opcionMenu = 0;
@@ -85,12 +87,12 @@ private:
     float _tiempoMensajeCofre = 0.0f;
     Jugador jugador;
     GestorOleadas _gestorOleadas;
-    std::vector<std::uint64_t> _identificadoresEnemigos;
-    std::uint64_t _siguienteIdEnemigo = 1;
+    Partida _partida{1};
+    int _eliminadosRegistrados = 0;
     AspectoProyectiles _aspectoProyectiles;
     AspectoArmas _aspectoArmas;
     AspectoEncuentros _aspectoEncuentros;
-    float _anguloArma = 0.0f;
+    std::array<float, 2> _angulosArmas{};
     std::vector<Proyectil> _proyectiles;
     Arma armaPrueba;
     Arma _metralletaPrueba;
@@ -108,7 +110,12 @@ private:
     void procesarEventos();
     void actualizar();
     void actualizarEnemigos(float segundos);
-    void sincronizarIdentificadoresEnemigos();
+    void actualizarPartida(float segundos);
+    void iniciarNuevaPartida();
+    void dibujarResultado();
+    Posicion obtenerAnclajeArma(std::size_t slot) const;
+    Arma& obtenerArmaPorId(int idArma);
+    void dispararArma(std::size_t slot);
     void actualizarDanoContacto(float segundos);
     void actualizarIndicadoresDanio(float segundos);
     void actualizarRecursos(float segundos);

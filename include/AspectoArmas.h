@@ -14,10 +14,12 @@ public:
                  float angulo, int idArma) const;
     bool texturaDisponible(bool metralleta) const;
     bool texturaDisponible(int idArma) const;
+    Posicion obtenerPunta(Posicion anclaje, float angulo, int idArma) const;
 
 private:
     std::array<sf::Texture, 4> _texturas;
     std::array<sf::IntRect, 4> _recortes;
     std::array<bool, 4> _disponibles;
     bool cargar(std::size_t indice, const char* carpeta, const char* nombre);
+    sf::RectangleShape crearFigura(Posicion anclaje, float angulo, int idArma) const;
 };

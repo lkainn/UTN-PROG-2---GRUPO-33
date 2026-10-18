@@ -5,6 +5,12 @@
 #include <fstream>
 #include <string>
 
+namespace
+{
+// Altura de la boca en cada silueta recortada, medida sobre los PNG.
+constexpr std::array<float, 4> ALTURAS_BOCA{{0.21f, 0.28f, 0.25f, 0.43f}};
+}
+
 AspectoArmas::AspectoArmas(const char* carpeta)
     : _texturas{}, _recortes{}, _disponibles{}
 {
@@ -82,6 +88,11 @@ void AspectoArmas::dibujar(sf::RenderTarget& destino, Posicion centroJugador,
     {
         return;
     }
+    destino.draw(crearFigura(centroJugador, angulo, idArma));
+}
+
+sf::RectangleShape AspectoArmas::crearFigura(Posicion centroJugador, float angulo, int idArma) const
+{
     const std::size_t indice = static_cast<std::size_t>(idArma - 1);
     constexpr std::array<float, 4> ANCHOS{{48.0f, 72.0f, 60.0f, 76.0f}};
     constexpr std::array<float, 4> PIVOTES{{0.23f, 0.38f, 0.30f, 0.25f}};
@@ -93,8 +104,8 @@ void AspectoArmas::dibujar(sf::RenderTarget& destino, Posicion centroJugador,
             static_cast<float>(_recortes[indice].size.x);
     }
     sf::RectangleShape figura({ancho, alto});
-    // Los PNG tienen empunaduras distintas; el pivote acompana cada silueta.
-    figura.setOrigin({ancho * PIVOTES[indice], alto * 0.60f});
+    // El eje del canon pasa por el anclaje para conservar la punteria al girar.
+    figura.setOrigin({ancho * PIVOTES[indice], alto * ALTURAS_BOCA[indice]});
     constexpr float SEPARACION_ARMA = 8.0f;
     figura.setPosition({centroJugador.x + std::cos(angulo) * SEPARACION_ARMA,
                         centroJugador.y + std::sin(angulo) * SEPARACION_ARMA});
@@ -114,7 +125,21 @@ void AspectoArmas::dibujar(sf::RenderTarget& destino, Posicion centroJugador,
             sf::Color(160, 95, 50), sf::Color(190, 130, 60), sf::Color(70, 220, 255)}};
         figura.setFillColor(colores[indice]);
     }
-    destino.draw(figura);
+    return figura;
+}
+
+Posicion AspectoArmas::obtenerPunta(Posicion anclaje, float angulo, int idArma) const
+{
+    if (idArma < 1 || idArma > 4 || !std::isfinite(angulo) ||
+        !std::isfinite(anclaje.x) || !std::isfinite(anclaje.y))
+    {
+        return anclaje;
+    }
+    const sf::RectangleShape figura = crearFigura(anclaje, angulo, idArma);
+    const sf::Vector2f tamanio = figura.getSize();
+    const sf::Vector2f punta = figura.getTransform().transformPoint(
+        {tamanio.x, tamanio.y * ALTURAS_BOCA[idArma - 1]});
+    return {punta.x, punta.y};
 }
 
 bool AspectoArmas::texturaDisponible(bool metralleta) const
