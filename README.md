@@ -141,10 +141,6 @@ acero, con estados cerrado y vacio. Las estaciones utilizan terminales con
 pantalla verde que se apaga tras la compra. Ambos mantienen sus reglas de
 interaccion, precios y recompensas.
 
-Los PNG se cargan una vez y se dibujan sin suavizado; si faltan, se usan
-formas industriales de respaldo. Ver [diseno y prompts](recursos/encuentros/diseno.md).
-La prueba grafica es pruebas/probar_aspecto_encuentros.bat.
-
 ### Estaciones, rarezas y cofres
 
 Los objetos se distribuyen por zonas al explorar y conservan su estado durante
