@@ -46,6 +46,16 @@ class GestorOleadas {
         static const float SEGUNDOS_APARECE_RAPIDO;
         static const float SEGUNDOS_APARECE_RESISTENTE;
 
+        // En que segundo aparece el jefe, y cuanto antes se avisa para que el
+        // jugador no se lo encuentre de golpe.
+        static const float SEGUNDOS_APARECE_JEFE;
+        static const float SEGUNDOS_AVISO_JEFE;
+
+        // Mientras el jefe vive, los enemigos comunes aparecen a este ritmo
+        // respecto del normal: 2.0 significa la mitad de seguido. Mantiene la
+        // presion sin hacer la pelea imposible.
+        static const float FACTOR_INTERVALO_CON_JEFE;
+
         GestorOleadas();
 
         // Genera, mueve y limpia. En ese orden.
@@ -62,6 +72,12 @@ class GestorOleadas {
 
         std::size_t cantidadEnemigos() const;
 
+        // Cuantos murieron en toda la partida. Lo cuenta el gestor al sacarlos
+        // del vector, que es el unico lugar donde una muerte ocurre una sola
+        // vez: si lo contara quien aplica el dano habria que recordar a quien
+        // ya se conto para no sumarlo dos veces.
+        int enemigosEliminados() const;
+
         // Dano a todos los vivos de una vez. Es para probar el modulo sin
         // proyectiles: en el juego el dano lo aplica quien detecta el impacto.
         void danarATodos(int cantidad);
@@ -72,11 +88,24 @@ class GestorOleadas {
         float intervaloActual() const;   // cada cuanto aparece uno ahora
         std::size_t maximoVivosActual() const;
 
+        // Estado del jefe. Quien dibuja decide como avisar y como mostrar la
+        // victoria: el gestor solo informa en que momento esta la partida.
+        bool jefeEnCamino() const;       // ya se puede avisar, todavia no salio
+        float segundosParaElJefe() const;  // 0 si ya aparecio o ya fue vencido
+        bool jefeEstaVivo() const;       // esta en el mapa y le queda vida
+        bool jefeFueDerrotado() const;   // condicion de victoria de la partida
+
     private:
         std::vector<Enemigo> enemigos;
         float tiempoPartida;        // segundos desde el inicio de la partida
         float tiempoAcumulado;      // segundos desde la ultima aparicion
         std::mt19937 generador;     // numeros al azar para angulo y variante
+
+        int totalEliminados;        // acumulado de la partida
+
+        bool jefeGenerado;          // ya aparecio en esta partida
+        bool jefeDerrotado;         // lo mataron: la partida se gana
+        std::uint64_t idInstanciaJefe;  // para reconocerlo dentro del vector
 
         // Cuanto avanzo la curva de dificultad: 0 al empezar, 1 al llegar a
         // SEGUNDOS_DIFICULTAD_MAXIMA. Los valores se interpolan con esto.
@@ -88,7 +117,9 @@ class GestorOleadas {
         // Sortea entre las variantes ya habilitadas por el tiempo de partida.
         TipoEnemigo variantePorAparecer();
 
+        void generarJefeSiCorresponde(Posicion posicionJugador);
         void generarSiCorresponde(Posicion posicionJugador, float dt);
         void moverEnemigos(Posicion posicionJugador, float dt);
+        void detectarJefeDerrotado();
         void quitarMuertos();
 };

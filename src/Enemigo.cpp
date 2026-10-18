@@ -2,8 +2,17 @@
 #include <cstring>
 #include <cmath>
 
+// Arranca en 1 y no en 0 a proposito: Proyectil::registrarImpacto descarta el
+// identificador 0, asi que un enemigo con ese id nunca recibiria impactos.
+std::uint64_t Enemigo::siguienteIdInstancia = 1;
+
 // Iniciamos el constructor
 Enemigo::Enemigo(int _idEnemigo, float _x, float _y, float _ancho, float _alto, float _velocidad, int _vida, int _dano, const char* _nombre, int _experienciaOtorgada, int _chatarraOtorgada){
+    // Se toma el numero libre y se deja el siguiente listo para el proximo
+    // enemigo que se cree.
+    idInstancia = siguienteIdInstancia;
+    siguienteIdInstancia++;
+
     idEnemigo = _idEnemigo;
     x = _x;
     y = _y;
@@ -75,6 +84,10 @@ int Enemigo::obtenerIdEnemigo() const {
     return idEnemigo;
 }
 
+std::uint64_t Enemigo::obtenerIdInstancia() const {
+    return idInstancia;
+}
+
 int Enemigo::obtenerDano() const {
     return dano;
 }
@@ -94,22 +107,52 @@ bool Enemigo::estaVivo()const{ // aca verificamos si esta vivo o no el enemigo
     return vida > 0;
 }
 
-Enemigo crearEnemigo(TipoEnemigo tipo, float x, float y) {
-    switch (tipo) {
+
+Enemigo crearEnemigo(TipoEnemigo tipo, float x, float y){
+    switch(tipo){
         case RAPIDO:
-            return Enemigo(
-                2, x, y, 40.0f, 40.0f, 220.0f,
-                60, 8, "Robot rapido", 7, 2);
+            return Enemigo(2, // aca ponemos el tipo de enemigo
+                           x, y, // posicion
+                           40.0f, 40.0f, // ancho y alto
+                           220.0f, // velocidad en px por segundo
+                           60, // vida
+                           8, // danio por contacto
+                           "Robot rapido",
+                           7, 2 // Exp y chatarra
+                           );
 
         case RESISTENTE:
-            return Enemigo(
-                3, x, y, 72.0f, 72.0f, 70.0f,
-                250, 15, "Robot resistente", 12, 6);
+            return Enemigo(3, // aca ponemos el tipo de enemigo
+                           x, y, // posicion
+                           72.0f, 72.0f, // ancho y alto
+                           70.0f, // velocidad en px por segundo
+                           250, // vida
+                           15, // danio por contacto
+                           "Robot resistente",
+                           12, 6 // Exp y chatarra
+                           );
+
+        case JEFE:
+            return Enemigo(4, // aca ponemos el tipo de enemigo
+                           x, y, // posicion
+                           120.0f, 120.0f, // ancho y alto
+                           85.0f, // velocidad en px por segundo
+                           3000, // vida
+                           35, // danio por contacto
+                           "Jefe chatarrero",
+                           200, 120 // Exp y chatarra
+                           );
 
         case BASICO:
-        default:
-            return Enemigo(
-                1, x, y, 56.0f, 56.0f, 120.0f,
-                100, 10, "Robot basico", 5, 3);
+        default: // si llega un tipo desconocido devolvemos el basico
+            return Enemigo(1, // aca ponemos el tipo de enemigo
+                           x, y, // posicion
+                           56.0f, 56.0f, // ancho y alto
+                           120.0f, // velocidad en px por segundo
+                           100, // vida
+                           10, // danio por contacto
+                           "Robot basico",
+                           5, 3 // Exp y chatarra
+                           );
     }
 }

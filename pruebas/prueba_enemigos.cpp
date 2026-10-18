@@ -11,19 +11,24 @@
 //       rojo    = basico     (56x56, vida 100, 120 px/s) desde el segundo 0
 //       amarillo= rapido     (40x40, vida  60, 220 px/s) desde el segundo 60
 //       violeta = resistente (72x72, vida 250,  70 px/s) desde el segundo 180
+//       naranja = JEFE       (120x120, vida 3000, 85 px/s) en el minuto 5
 //   - el circulo gris marca el anillo por donde aparecen
-//   - el titulo muestra oleada, tiempo, vivos sobre el tope e intervalo
+//   - el titulo muestra oleada, tiempo, vivos sobre el tope, vida simulada,
+//     bajas, puntaje y el desenlace (jefe en camino, victoria o derrota)
 //
 // Controles:
 //   ESPACIO  dano a todos los vivos (simula el impacto de un proyectil)
 //   flechas  mover el objetivo, para ver como lo persiguen
-//   R        reiniciar
+//   K        dano al jugador simulado (5 golpes = derrota)
+//   T        adelantar 30 segundos el reloj de partida
+//   R        reiniciar la partida entera
 //   ESC      cerrar
 //
 // Compilar con compilar_pruebas.bat
 
 #include "Enemigo.h"
 #include "GestorOleadas.h"
+#include "Partida.h"
 
 #include <cstddef>
 #include <string>
@@ -38,6 +43,9 @@ const unsigned int ALTO = 720;
 const int DANO_POR_GOLPE = 25;
 const float VELOCIDAD_OBJETIVO = 300.0f;
 const float RADIO_OBJETIVO = 10.0f;
+const float SALTO_DE_TIEMPO = 30.0f;  // lo que adelanta la tecla T
+const int VIDA_SIMULADA_INICIAL = 100;
+const int DANO_RECIBIDO_POR_GOLPE = 20;
 
 // El Enemigo no sabe de colores ni de SFML, y esta bien que sea asi: el color
 // lo elige quien dibuja, a partir del id de la variante.
@@ -47,6 +55,8 @@ sf::Color colorDeVariante(int idEnemigo) {
             return sf::Color(235, 190, 60);   // rapido
         case 3:
             return sf::Color(130, 115, 220);  // resistente
+        case 4:
+            return sf::Color(240, 120, 20);   // jefe
         case 1:
         default:
             return sf::Color(200, 60, 60);    // basico
@@ -61,6 +71,11 @@ int main() {
     ventana.setFramerateLimit(60);
 
     GestorOleadas gestor;
+    Partida partida(1);          // el 1 simula el id del jugador
+
+    // Vida simulada del jugador: la prueba no conoce la clase Jugador.
+    int vidaSimulada = VIDA_SIMULADA_INICIAL;
+    int eliminadosContados = 0;  // para informarle a Partida solo lo nuevo
 
     // El objetivo simula al jugador. Es solo una coordenada: el modulo de
     // enemigos no conoce la clase Jugador y no tiene por que conocerla.
@@ -114,8 +129,27 @@ int main() {
                     gestor.danarATodos(DANO_POR_GOLPE);
                 }
 
+                // Dano al jugador simulado, para probar la derrota.
+                if (tecla->scancode == sf::Keyboard::Scancode::K) {
+                    vidaSimulada -= DANO_RECIBIDO_POR_GOLPE;
+                    if (vidaSimulada < 0) {
+                        vidaSimulada = 0;
+                    }
+                }
+
                 if (tecla->scancode == sf::Keyboard::Scancode::R) {
                     gestor.reiniciar();
+                    partida = Partida(1);
+                    vidaSimulada = VIDA_SIMULADA_INICIAL;
+                    eliminadosContados = 0;
+                }
+
+                // Adelanta el reloj de partida para no tener que esperar
+                // cinco minutos reales hasta el jefe.
+                if (tecla->scancode == sf::Keyboard::Scancode::T &&
+                    partida.estaEnCurso()) {
+                    gestor.actualizar(objetivo, SALTO_DE_TIEMPO);
+                    partida.actualizar(SALTO_DE_TIEMPO);
                 }
             }
         }
@@ -135,8 +169,26 @@ int main() {
         }
 
         // 4. Toda la logica del modulo pasa por esta unica llamada: genera,
-        // mueve y limpia.
-        gestor.actualizar(objetivo, dt);
+        // mueve y limpia. Se congela cuando la partida termino.
+        if (partida.estaEnCurso()) {
+            gestor.actualizar(objetivo, dt);
+            partida.actualizar(dt);
+
+            // Las bajas las cuenta el gestor; aca solo se le pasa a Partida
+            // la diferencia desde la ultima vez, para no sumar dos veces.
+            const int eliminados = gestor.enemigosEliminados();
+            if (eliminados > eliminadosContados) {
+                partida.registrarEliminados(eliminados - eliminadosContados);
+                eliminadosContados = eliminados;
+            }
+
+            // Los dos desenlaces. Partida se queda con el primero que llegue.
+            if (vidaSimulada <= 0) {
+                partida.marcarDerrota();
+            } else if (gestor.jefeFueDerrotado()) {
+                partida.marcarVictoria();
+            }
+        }
 
         // 5. Dibujar.
         ventana.clear(sf::Color(28, 31, 36));
@@ -171,6 +223,20 @@ int main() {
         if (tiempoDesdeTitulo >= 0.25f) {
             tiempoDesdeTitulo = 0.0f;
 
+            // El estado del jefe lo informa el gestor; quien dibuja decide
+            // como mostrarlo. Aca alcanza con el titulo de la ventana.
+            std::string jefe;
+            if (partida.fueVictoria()) {
+                jefe = " - VICTORIA";
+            } else if (!partida.estaEnCurso()) {
+                jefe = " - DERROTA";
+            } else if (gestor.jefeEstaVivo()) {
+                jefe = " - JEFE EN EL MAPA";
+            } else if (gestor.jefeEnCamino()) {
+                jefe = " - JEFE EN " +
+                       std::to_string((int)gestor.segundosParaElJefe() + 1) + "s";
+            }
+
             const int segundos = (int)gestor.tiempoDePartida();
             ventana.setTitle(
                 "Enemigos - oleada " + std::to_string(gestor.oleadaActual()) +
@@ -179,8 +245,9 @@ int main() {
                 std::to_string(segundos % 60) +
                 " - vivos " + std::to_string(gestor.cantidadEnemigos()) + "/" +
                 std::to_string(gestor.maximoVivosActual()) +
-                " - cada " + std::to_string(gestor.intervaloActual()).substr(0, 4) +
-                "s");
+                "s - vida " + std::to_string(vidaSimulada) +
+                " - bajas " + std::to_string(partida.obtenerEnemigosEliminados()) +
+                " - puntaje " + std::to_string(partida.obtenerPuntaje()) + jefe);
         }
     }
 

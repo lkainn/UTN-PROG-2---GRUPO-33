@@ -7,7 +7,7 @@ if not exist "%COMPILADOR%" exit /b 1
 if not exist "bin\Debug" mkdir "bin\Debug"
 "%COMPILADOR%" -std=c++17 -Wall -Wextra ^
     -Iinclude -I"%SFML%\include" ^
-    pruebas\AspectoProyectiles.cpp src\Juego.cpp src\AspectoEncuentros.cpp src\AspectoProyectiles.cpp src\AspectoArmas.cpp src\Escenario.cpp src\EstacionMejoras.cpp src\InventarioArmas.cpp src\EncuentroAleatorio.cpp src\Jugador.cpp src\Enemigo.cpp src\GestorOleadas.cpp src\Arma.cpp src\Proyectil.cpp src\SistemaColisiones.cpp ^
+    pruebas\AspectoProyectiles.cpp src\Juego.cpp src\Partida.cpp src\AspectoEncuentros.cpp src\AspectoProyectiles.cpp src\AspectoArmas.cpp src\Escenario.cpp src\EstacionMejoras.cpp src\InventarioArmas.cpp src\EncuentroAleatorio.cpp src\Jugador.cpp src\Enemigo.cpp src\GestorOleadas.cpp src\Arma.cpp src\Proyectil.cpp src\SistemaColisiones.cpp ^
     -L"%SFML%\lib" -lsfml-graphics-d -lsfml-window-d -lsfml-system-d ^
     -o bin\Debug\PruebaAspectoProyectiles.exe
 if errorlevel 1 exit /b 1
