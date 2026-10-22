@@ -131,21 +131,22 @@ int main()
     auto& enemigos = juego._gestorOleadas.obtenerEnemigos();
     enemigos.assign(1, crearEnemigo(BASICO, 1100.0f, 512.0f));
     juego.actualizarDisparoAutomatico();
-    correcto &= comprobar(juego._proyectiles.size() == 1 && std::abs(juego._anguloArma) < 0.001f,
+    correcto &= comprobar(juego._proyectiles.size() == 1 && std::abs(juego._angulosArmas[0]) < 0.15f,
         "apunta y dispara al objetivo derecho");
     enemigos[0] = crearEnemigo(BASICO, 932.0f, 700.0f);
     juego.actualizarDisparoAutomatico();
-    correcto &= comprobar(juego._proyectiles.size() == 1 && std::abs(juego._anguloArma - PI / 2.0f) < 0.001f,
+    correcto &= comprobar(juego._proyectiles.size() == 1 && std::abs(juego._angulosArmas[0] - PI / 2.0f) < 0.15f,
         "sigue objetivo durante cooldown sin disparo adicional");
+    const float anguloSinObjetivo = juego._angulosArmas[0];
     enemigos.clear();
     juego.actualizarDisparoAutomatico();
-    correcto &= comprobar(std::abs(juego._anguloArma - PI / 2.0f) < 0.001f,
+    correcto &= comprobar(juego._angulosArmas[0] == anguloSinObjetivo,
         "sin objetivo conserva ultima orientacion");
     juego._inventarioArmas.aplicarOferta({2, RarezaMejora::Comun, false});
     juego.seleccionarArmaPrueba(Juego::TipoArmaPrueba::Metralleta);
     juego.dibujar();
     juego.reiniciarPrueba();
-    correcto &= comprobar(juego._anguloArma == 0.0f && juego.obtenerArmaSeleccionada().obtenerId() == 1,
+    correcto &= comprobar(juego._angulosArmas[0] == 0.0f && juego._angulosArmas[1] == 0.0f && juego.obtenerArmaSeleccionada().obtenerId() == 1,
         "reinicio restaura orientacion y pistola");
     juego.ventana.close();
     std::cout << (correcto ? "Armas: render, orientacion, respaldo y reinicio correctos\n" : "Hay fallos\n");
