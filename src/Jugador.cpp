@@ -282,4 +282,3 @@ void Jugador::restablecerProgreso() {
     _experiencia = 0;
     _experienciaSiguienteNivel = 100;
 }
-
