@@ -1,18 +1,41 @@
 #include "Jugador.h"
 #include "Configuracion.h"
+#include "ArchivoJugadores.h"
+#include "ArchivoMejoras.h"
 #include <limits>
+
 
 Jugador::Jugador() {
     // Inicializa la posicion centrada
     _posicion = { Configuracion::ANCHO_VENTANA / 2.0f, Configuracion::ALTO_VENTANA / 2.0f };
-    // Las estadisticas iniciales del personaje
+
+    // Leer el perfil básico guardado (Nivel y Chatarra)
+    ArchivoJugadores archivo;
+    RegistroJugador reg = archivo.leer();
+    _nivel = reg.nivelMaximo;
+    _chatarra = reg.chatarraTotal;
+
+    // Establecer estadisticas base escaladas por el nivel actual
     _velocidad = 5.0f;
-    _vidaMaxima = 100;
+    _vidaMaxima = 100 + (_nivel - 1) * 20;
+    _experienciaSiguienteNivel = 100 + (_nivel - 1) * 50;
+
+    // Leer el catalogo de mejoras y aplicar los incrementos
+    ArchivoMejoras gestorMejoras;
+    std::vector<Mejora> catalogo = gestorMejoras.leerCatalogo();
+
+    for (const Mejora& m : catalogo) {
+        if (m.idMejora == 1) { // Vida Máxima
+            _vidaMaxima += (m.nivelActual * 20);
+        }
+        else if (m.idMejora == 2) { // Velocidad
+            _velocidad += (m.nivelActual * 1.0f);
+        }
+    }
+
+    // Inicializar el estado de la partida actual
     _vida = _vidaMaxima;
-    _nivel = 1;
     _experiencia = 0;
-    _experienciaSiguienteNivel = 100;
-    _chatarra = 0;
     _vivo = true;
 
     // Configuracion cuadrado para pruebas
@@ -92,6 +115,10 @@ void Jugador::verificarSubidaNivel() {
     _experienciaSiguienteNivel += 50;
     _vidaMaxima += 20;
     _vida = _vidaMaxima; // Aumenta vida completa al subir de nivel
+
+    ArchivoJugadores archivo;
+    RegistroJugador reg = {_nivel, 0, _chatarra};
+    archivo.guardar(reg);
     }
 }
 
@@ -104,6 +131,10 @@ void Jugador::ganarExperiencia(int cantidad) {
 void Jugador::ganarChatarra(int cantidad) {
     if (!_vivo || cantidad <=0) return;
     _chatarra += cantidad;
+
+    ArchivoJugadores archivo;
+    RegistroJugador reg = {_nivel, 0, _chatarra};
+    archivo.guardar(reg);
  }
 
 // Metodos para la estacion de prueba
@@ -114,6 +145,11 @@ bool Jugador::gastarChatarra(int cantidad)
         return false;
     }
     _chatarra -= cantidad;
+
+    ArchivoJugadores archivo;
+    RegistroJugador reg = {_nivel, 0, _chatarra};
+    archivo.guardar(reg);
+
     return true;
 }
 
@@ -225,3 +261,25 @@ void Jugador::cargarEstado(int vida, int nivel, int exp, int chatarra) {  // Asi
             _formaGrafica.setFillColor(sf::Color(100, 100, 100)); // Gris si esta muerto
         }
 }
+
+void Jugador::restablecerProgreso() {
+    // Sobrescribir Jugadores.dat con los valores iniciales (Nivel 1, 0 puntos, 0 chatarra)
+    ArchivoJugadores archivoJugador;
+    archivoJugador.guardar({1, 0, 0});
+
+    // Sobrescribir Mejoras.dat con el catálogo en nivel 0
+    ArchivoMejoras gestorMejoras;
+    std::vector<Mejora> catalogoBase;
+    catalogoBase.push_back({1, "Vida Maxima", 0, 5, "Aumenta tu salud limite"});
+    catalogoBase.push_back({2, "Velocidad", 0, 3, "Corres mas rapido"});
+    gestorMejoras.guardarCatalogo(catalogoBase);
+
+    _nivel = 1;
+    _chatarra = 0;
+    _velocidad = 5.0f;
+    _vidaMaxima = 100;
+    _vida = _vidaMaxima;
+    _experiencia = 0;
+    _experienciaSiguienteNivel = 100;
+}
+

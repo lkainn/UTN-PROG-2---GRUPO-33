@@ -2,7 +2,7 @@
 
 #include "Configuracion.h"
 #include "SistemaColisiones.h"
-
+#include "ArchivoMejoras.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -178,9 +178,35 @@ void Juego::procesarEventos() {
                 jugador.recibirDano(20);
             } else if (tecla->scancode == sf::Keyboard::Scancode::E) {
                 jugador.ganarExperiencia(40);
+            } else if (tecla->scancode == sf::Keyboard::Scancode::U) {
+
+    // Prueba temporal para comprar mejora de Vida Maxima (Costo simulado: 10)
+    if (jugador.gastarChatarra(10)) { // Descuenta y guarda en Jugadores.dat
+
+        ArchivoMejoras gestorMejoras;
+        std::vector<Mejora> catalogo = gestorMejoras.leerCatalogo();
+
+        for (Mejora& m : catalogo) {
+            // idMejora 1 es Vida Maxima
+            if (m.idMejora == 1 && m.nivelActual < m.nivelMaximo) {
+                m.nivelActual++;
+                jugador.aumentarVidaMaxima(20);
+                gestorMejoras.guardarCatalogo(catalogo); // Sobrescribe Mejoras.dat
+                ventana.setTitle("MEJORA COMPRADA: Vida Nivel " + std::to_string(m.nivelActual));
+                break;
             }
         }
     }
+}
+
+// Prueba temporal para simular nueva partida y empezar de 0
+else if (tecla->scancode == sf::Keyboard::Scancode::N) {
+
+    jugador.restablecerProgreso();
+    ventana.setTitle("PROGRESO RESETEADO (Nueva Partida)");
+    }
+}
+}
 }
 
 void Juego::actualizar() {
