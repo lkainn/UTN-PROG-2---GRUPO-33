@@ -550,15 +550,180 @@ objetivo.x = posicionJugador.x - forma.ancho / 2.0f;
 ```
 
 Sin esto el enemigo persigue con su esquina superior izquierda y queda siempre
-corrido medio cuerpo. Lucas hace esta misma cuenta en `Juego.cpp`; cuando se
-integre el gestor, él la borra porque ya está resuelta adentro.
+corrido medio cuerpo. Lucas hacía esta misma cuenta en `Juego.cpp`; al integrar
+el gestor la borró, porque ya está resuelta adentro.
 
 ---
 
-## 10. Reglas de trabajo del grupo
+## 10. El jefe final
 
-- Archivos **míos**: `Enemigo`, `GestorOleadas`, `Partida`, `ArchivoPartidas`,
-  y las pruebas.
+Es la condición de victoria: hasta que existió, se podía sobrevivir para
+siempre pero no ganar.
+
+**No es una clase nueva.** Es una cuarta variante del `enum`, con `idEnemigo`
+4 — su fila en `Enemigos.dat`. Lo único distinto es cuándo y cómo aparece.
+
+| | |
+|---|---|
+| Aparece | minuto 5, cuando la dificultad llega a su máximo |
+| Aviso | 5 segundos antes |
+| Tamaño | 120×120 |
+| Vida | 3000 |
+| Velocidad | 85 px/s |
+| Recompensa | 200 exp, 120 chatarra |
+
+### Tres decisiones que no son obvias
+
+**No pasa por el techo de enemigos vivos.** Si el techo estuviera lleno de
+comunes, el jefe nunca saldría y la partida sería imposible de ganar. Se genera
+aparte del temporizador normal.
+
+**Mientras vive, los comunes aparecen al doble de intervalo.** Pelear contra el
+jefe con el ritmo máximo de oleadas encima hacía la victoria impracticable.
+
+**Se lo reconoce por `obtenerIdInstancia()`, no por su posición en el vector**,
+porque el vector se reordena cada vez que se limpian los muertos.
+
+### El orden importa (otra vez)
+
+```cpp
+detectarJefeDerrotado();   // primero
+quitarMuertos();           // despues
+```
+
+Una vez que el jefe sale del vector ya no se puede distinguir si murió o si
+nunca estuvo. Por eso se revisa antes de limpiar.
+
+### Lo que el gestor informa
+
+```cpp
+bool jefeEnCamino() const;        // mostrá el aviso
+float segundosParaElJefe() const; // para una cuenta regresiva
+bool jefeEstaVivo() const;        // está en el mapa
+bool jefeFueDerrotado() const;    // ← LA VICTORIA
+```
+
+El gestor no dibuja nada: solo informa en qué momento está la partida. Quien
+dibuja decide cómo mostrarlo.
+
+---
+
+## 11. `obtenerIdInstancia()`: identificar a cada enemigo
+
+Distinto de `obtenerIdEnemigo()`, que dice la **variante** (1, 2, 3, 4). Este
+identifica a **ese enemigo puntual**: 1, 2, 3… y nunca se repite.
+
+```cpp
+static std::uint64_t siguienteIdInstancia;          // en el .h, private
+std::uint64_t Enemigo::siguienteIdInstancia = 1;    // en el .cpp
+```
+
+**Qué significa `static` en una clase:** la variable es **una sola, compartida
+por todos los enemigos** — no pertenece a ninguno. Cada enemigo que se
+construye se lleva el número actual y lo incrementa.
+
+> **Ejemplo bobo:** es el rollito de números del Registro Civil. El rollo es uno
+> solo; cada persona que llega arranca un número y el siguiente queda para el
+> que viene.
+
+**Arranca en 1 y no en 0** porque `Proyectil::registrarImpacto()` descarta el
+id 0: un enemigo con ese número nunca recibiría impactos del cañón.
+
+### Para qué hizo falta
+
+El cañón de energía atraviesa varios enemigos y no debe pegarle dos veces al
+mismo. Antes, `Juego` mantenía un vector de identificadores en paralelo al de
+enemigos y lo alineaba a mano, asumiendo que el gestor agregaba al final y
+preservaba el orden al limpiar. Funcionaba, pero cualquier cambio interno del
+gestor lo habría roto en silencio. Con el id adentro del enemigo, ese vector
+paralelo desapareció.
+
+---
+
+## 12. Los archivos binarios
+
+Dos archivos, con formas distintas.
+
+| Archivo | Qué es | Modo |
+|---|---|---|
+| `Enemigos.dat` | catálogo de variantes, se lee al empezar | `"wb"` / `"rb"` |
+| `Partidas.dat` | historial, crece con cada partida | `"ab"` para agregar |
+
+### Por qué structs planos
+
+Solo `int`, `float`, `bool` y arreglos de `char`. **Nada de `std::string`**: un
+string guarda internamente un puntero a otra parte de la memoria, y volcarlo al
+archivo guardaría una dirección que mañana no significa nada.
+
+### `Enemigos.dat`: el catálogo manda
+
+El gestor ya **no** toma las estadísticas de las constantes escritas en
+`crearEnemigo()`: las lee del archivo al construirse. Se puede rebalancear el
+juego sin recompilar.
+
+Comprobado cambiando la vida del básico a 777 en el archivo: los enemigos
+generados aguantaron exactamente 777 golpes.
+
+Si el archivo falta, o ningún registro pasa la validación, se rehace con los
+valores de fábrica. Así la primera ejecución en una máquina nueva funciona sin
+pasos previos.
+
+El registro tiene los 7 campos del informe **más `ancho` y `alto`**: sin ellos
+el catálogo no alcanza para construir un enemigo. *(Pendiente: actualizar esa
+línea del informe.)*
+
+### `Partidas.dat`: `"ab"` en vez de `"wb"`
+
+```cpp
+FILE* archivo = fopen(RUTA, "ab");   // agrega al final
+```
+
+Con `"wb"` cada partida pisaría el historial entero. El número de registro sale
+de cuántos había antes.
+
+Una partida **en curso se rechaza**: su duración y su resultado todavía pueden
+cambiar.
+
+### Leer sin cargar basura
+
+```cpp
+while (fread(&registro, sizeof(RegistroPartida), 1, archivo) == 1) {
+```
+
+`fread` devuelve cuántos registros **completos** leyó. Si el archivo quedó
+cortado por la mitad, el pedazo incompleto se descarta en vez de entrar como
+basura.
+
+### El bug de la carpeta `datos/`
+
+**`fopen` no crea carpetas.** Si no existe `datos/`, devuelve `NULL` y el
+guardado se pierde sin ningún aviso.
+
+Eso pasaba al ejecutar el juego con doble clic sobre `bin\Debug\ProyectoTPI.exe`:
+la ruta `"datos/..."` se resuelve contra el **directorio de trabajo**, que ahí
+es `bin\Debug` y no la raíz del proyecto.
+
+| | Antes | Ahora |
+|---|---|---|
+| Desde Code::Blocks | guardaba | guarda |
+| Doble clic en el `.exe` | **no guardaba nada** | guarda |
+
+La solución está en `CarpetaDatos.h`: `asegurarCarpetaDatos()` llama a `_mkdir`
+antes de cada escritura. Se usa `_mkdir` y no `std::filesystem` porque este
+último compila pero el ejecutable no arranca con este MinGW.
+
+### Qué se versiona y qué no
+
+- `Enemigos.dat` **sí**: es contenido del juego.
+- `Partidas.dat` **no** (está en el `.gitignore`): lo genera cada uno al jugar,
+  y versionarlo daría conflictos binarios en cada partida.
+
+---
+
+## 13. Reglas de trabajo del grupo
+
+- Archivos **míos**: `Enemigo`, `GestorOleadas`, `Partida`, `ArchivoEnemigos`,
+  `ArchivoPartidas`, `CarpetaDatos.h` y las pruebas.
 - Archivos que **no toco sin avisar**: `Juego.*`, `main.cpp`, `Configuracion.h`,
   `TiposCompartidos.h`.
 - `ProyectoTPI.cbp` lo van a modificar los tres al agregar archivos → es el
@@ -567,30 +732,27 @@ integre el gestor, él la borra porque ya está resuelta adentro.
 
 ---
 
-## 11. Estado del módulo
+## 14. Estado del módulo
 
-- [x] Structs compartidas (quedaron en `TiposCompartidos.h`, de Lucas —
-      el `Comunes.h` propio se borró para no duplicarlas)
-- [x] `Enemigo.h` / `.cpp` — atributos y contrato completo
-- [x] `obtenerFormaColision()` — probado contra el `SistemaColisiones` de Lucas
-- [x] `obtenerDano()` y `obtenerRecompensa()` (los agregó Lucas al integrar)
-- [x] `obtenerIdEnemigo()` — para que quien dibuja sepa la variante
-- [x] Variantes: básico, rápido, resistente (`enum` + `crearEnemigo`)
+Terminado:
+
+- [x] `Enemigo` — persecución con delta time, daño, vida, recompensa
+- [x] Tres variantes + el jefe (`enum TipoEnemigo` y `crearEnemigo`)
+- [x] `obtenerIdInstancia()` — identidad única por enemigo
 - [x] `GestorOleadas` — aparición en anillo, techo de vivos, limpieza
 - [x] Dificultad progresiva por tiempo y numeración de oleadas
+- [x] Jefe final en el minuto 5, con aviso y condición de victoria
+- [x] `Partida` — puntaje, duración, bajas, victoria/derrota
+- [x] `ArchivoEnemigos` — catálogo en `datos/Enemigos.dat`
+- [x] `ArchivoPartidas` — historial en `datos/Partidas.dat`
 - [x] `pruebas/prueba_enemigos.cpp` + `compilar_pruebas.bat`
-- [ ] Jefe final
-- [ ] Clase `Partida` (resultado, duración, puntaje, victoria/derrota)
-- [ ] `Enemigos.dat` y `Partidas.dat`
-- [ ] Integrar `GestorOleadas` en `Juego` (lo hace Lucas; reemplaza su
-      `std::array` fijo de 9 enemigos con posiciones hardcodeadas)
 
-### Pendiente para avisar al grupo
+Pendiente, pero no es código mío:
 
-- Bug en `src/Juego.cpp`: `TIPOS_ENEMIGOS` tiene 3 elementos pero se indexa
-  con el índice del enemigo, que va de 0 a 8. Para los índices 3 a 8 lee
-  fuera del arreglo — `std::array::operator[]` no verifica rango, así que no
-  avisa: devuelve lo que haya en memoria.
-- Pedir que integren mergeando la rama en vez de copiar el código a mano: se
-  pierden los comentarios y en el historial de git el módulo aparece como
-  escrito por otra persona.
+- [ ] Que `Juego` llame a `ArchivoPartidas::agregar(partida)` al terminar la
+      partida, donde ya detecta victoria y derrota. Es una línea.
+- [ ] Actualizar el informe: `Enemigos.dat` pasó de 7 a 9 campos (se le
+      sumaron `ancho` y `alto`).
+- [ ] Avisar que `CarpetaDatos.h` también le sirve a `ArchivoJugadores` y
+      `ArchivoMejoras`, que tienen el mismo problema de la carpeta.
+- [ ] `Armas.dat` es el único de los cinco binarios que falta (es de Lucas).
