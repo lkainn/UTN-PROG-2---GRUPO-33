@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ArchivoEnemigos.h"
 #include "Enemigo.h"
 #include "TiposCompartidos.h"
 
@@ -56,6 +57,8 @@ class GestorOleadas {
         // presion sin hacer la pelea imposible.
         static const float FACTOR_INTERVALO_CON_JEFE;
 
+        // Al construirse lee el catalogo de datos/Enemigos.dat. Si el
+        // archivo no existe lo crea con los valores de fabrica.
         GestorOleadas();
 
         // Genera, mueve y limpia. En ese orden.
@@ -101,6 +104,9 @@ class GestorOleadas {
         float tiempoAcumulado;      // segundos desde la ultima aparicion
         std::mt19937 generador;     // numeros al azar para angulo y variante
 
+        // Estadisticas de cada variante, leidas una sola vez al empezar.
+        std::vector<RegistroEnemigo> catalogo;
+
         int totalEliminados;        // acumulado de la partida
 
         bool jefeGenerado;          // ya aparecio en esta partida
@@ -116,6 +122,14 @@ class GestorOleadas {
 
         // Sortea entre las variantes ya habilitadas por el tiempo de partida.
         TipoEnemigo variantePorAparecer();
+
+        // Busca la fila del catalogo que corresponde a una variante. Devuelve
+        // nullptr si el archivo no la trae.
+        const RegistroEnemigo* registroDe(TipoEnemigo tipo) const;
+
+        // Crea un enemigo de esa variante usando el catalogo, o los valores
+        // escritos en crearEnemigo() si el catalogo no la tiene.
+        Enemigo fabricar(TipoEnemigo tipo, float x, float y) const;
 
         void generarJefeSiCorresponde(Posicion posicionJugador);
         void generarSiCorresponde(Posicion posicionJugador, float dt);

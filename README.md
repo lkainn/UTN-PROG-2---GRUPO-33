@@ -44,6 +44,24 @@ de `C:\Program Files\CodeBlocks\MinGW\bin`. Después se puede abrir
 
 ## Prototipo actual
 
+El perfil, las mejoras permanentes, el catalogo de enemigos y los resultados
+se guardan en `datos`. Esa carpeta se comparte al ejecutar desde la raiz y
+desde `bin/Debug`. U compra una mejora permanente de vida por 10 de chatarra;
+N reinicia el perfil y las mejoras sin borrar el historial de partidas.
+Al ganar o perder se guarda un unico resultado. Los detalles y las pruebas
+estan en `documentos/integracion_persistencia.md`.
+
+Remache usa sprites pixel art con desgaste industrial y ocho direcciones de
+movimiento. El cuerpo y ambos brazos se orientan al objetivo antes de apuntar
+las armas desde sus pinzas. Los pasos alternados avanzan con la distancia
+recorrida a un ritmo aproximado de dos ciclos por segundo a velocidad normal.
+El movimiento diagonal tiene la misma rapidez que el cardinal.
+La apariencia conserva una altura de
+144 px y la colision sigue siendo de 48 x 48. Los atlas estan en
+`recursos/personajes/remache_atlas`; el formato y el respaldo se describen en
+`recursos/personajes/diseno.md`. La prueba visual se ejecuta con
+`pruebas/probar_aspecto_jugador.bat`.
+
 `GestorOleadas` administra la aparición de enemigos alrededor del jugador,
 con dificultad creciente durante los primeros cinco minutos. La interfaz
 muestra el número de oleada y los segundos de partida. Los rápidos se habilitan
@@ -75,8 +93,8 @@ arriba y abajo seleccionan una opción y Enter la confirma. Desde Controles,
 Enter o Escape vuelven al menú. El combate comienza al elegir Jugar.
 Escape desde el menú principal cierra la ventana.
 
-La primera versión usa la fuente existente y formas de SFML; no requiere
-imágenes nuevas. No incluye todavía perfiles ni guardado.
+El menu usa la fuente existente y formas de SFML. El perfil y las mejoras
+permanentes se recuperan al comenzar una partida.
 
 Durante la partida, Escape abre el menú de pausa con Continuar y Salir.
 Flechas y Enter seleccionan la acción; Escape también permite continuar.
@@ -92,13 +110,14 @@ La prueba del menú se ejecuta con pruebas/probar_menu_principal.bat.
 |---|---|
 | WASD | Mover al jugador |
 | F | Interactuar con la estación o cofre disponible más cercano, dentro de 100 px |
-| 1 / 2 | Seleccionar un slot de arma fuera del menú |
 | 1 / 2 / 3 | Elegir una oferta de la estación |
 | 1 / 2 en la confirmación | Confirmar el reemplazo de pistola / volver a las ofertas |
 | Escape | Cancelar una compra pendiente y devolver el pago; durante el juego, abrir pausa; en pausa, continuar |
 | R | Reiniciar la prueba conservando inventario, mejoras, precios y encuentros usados |
 | K | Recibir 20 de daño para pruebas, fuera del menú |
 | E | Obtener 40 de experiencia para pruebas, fuera del menú |
+| U | Comprar una mejora permanente de vida por 10 de chatarra |
+| N | Reiniciar perfil y mejoras, conservando el historial de partidas |
 
 También se admiten las teclas numéricas del teclado numérico. R restaura la
 vida, limpia disparos y recursos del suelo, reinicia las recargas y selecciona
@@ -108,8 +127,9 @@ el slot 1 actual. No recupera una pistola descartada.
 
 Se inicia con pistola en el primer slot y el segundo vacío. Las demás armas
 se adquieren en estaciones junto con los beneficios de la oferta elegida.
-Solo se dispara el arma seleccionada; el uso simultáneo de dos armas sigue
-pendiente.
+Las dos armas equipadas disparan automáticamente, cada una con su alcance,
+orientación y recarga. Las balas nacen en la boca del arma dibujada, incluso
+al girar hacia la izquierda.
 
 | Arma | Daño base por proyectil | Disparos/s | Alcance | Descarga base |
 |---|---:|---:|---:|---|
@@ -124,8 +144,8 @@ sobre el mismo enemigo. Los disparos en vuelo conservan sus propiedades al
 mejorar o cambiar de arma.
 
 Las cuatro armas y sus proyectiles utilizan PNG transparentes. El arma equipada
-se dibuja junto al jugador y gira hacia el objetivo automático; sin objetivo
-conserva la última orientación. R restablece la orientación hacia la derecha.
+se dibuja desde la pinza y acompana la orientacion del personaje hacia el
+objetivo automatico. Sin objetivo sigue la vista del personaje.
 Los proyectiles de pistola miden 28 x 14 px y los de metralleta 14 x 6 px;
 ambos viajan a 800 px/s. Escopeta utiliza perdigones de 8 x 8 px y energía,
 proyectiles de 40 x 10 px. El giro es visual: las colisiones siguen alineadas
@@ -198,3 +218,28 @@ movimiento, daño y estado de cada disparo. `InventarioArmas` mantiene slots y
 bonos; `EstacionMejoras`, ofertas y precios. `Juego` coordina combate,
 interacciones y presentación. Las interfaces temporales de `Jugador` deberán
 coordinarse con su responsable antes de reemplazarlas.
+
+### Partida completa
+
+El jefe chatarrero aparece a los cinco minutos, con aviso durante los cinco
+segundos previos y color naranja. Mientras vive, los enemigos comunes aparecen
+mas espaciados. La interfaz muestra bajas, puntaje y estado del jefe.
+
+La muerte del jugador termina en derrota y la del jefe en victoria. Si ambos
+mueren en el mismo fotograma, tiene prioridad la derrota. La pantalla final
+muestra duracion, bajas, chatarra recogida, nivel y puntaje. Enter comienza una
+partida nueva; Escape vuelve al menu principal. El resultado detiene el combate.
+
+El puntaje suma 10 por baja, 2 por unidad de chatarra recogida y 5000 por victoria.
+La chatarra gastada sigue contando como recogida; los reembolsos no suman puntos.
+La duracion excluye las pausas y los menus de estaciones.
+
+Una partida nueva recupera el perfil y las mejoras permanentes, y restablece
+inventario, beneficios temporales, encuentros y precios.
+R sigue siendo un reinicio de prueba que conserva las compras y el progreso.
+El resultado se guarda una sola vez en Partidas.dat y actualiza el record
+de puntaje del perfil. La prueba se ejecuta con
+pruebas/probar_partida_integrada.bat.
+
+Ver la [guía de integración de partida y disparo de dos armas](documentos/guia_partida_integrada_y_disparo_doble.md)
+para el ciclo de juego, reinicio completo, origen de las balas y ejemplos de código.

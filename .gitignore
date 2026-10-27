@@ -4,3 +4,8 @@ dependencias/SFML/
 dependencias/*.zip
 *.layout
 *.depend
+
+# El progreso y el historial pertenecen a cada jugador.
+datos/Jugadores.dat
+datos/Mejoras.dat
+datos/Partidas.dat

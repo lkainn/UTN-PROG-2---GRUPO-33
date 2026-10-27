@@ -1,4 +1,5 @@
 #include "AspectoEncuentros.h"
+#include "EntornoDatosPrueba.h"
 
 #include <SFML/Graphics.hpp>
 #include <algorithm>
@@ -137,9 +138,9 @@ int main()
         vista.draw(etiqueta);
     }
     vista.display();
-    std::filesystem::create_directories(raiz + ".codex_tmp");
+    std::filesystem::create_directories(obtenerCarpetaSalidasPrueba());
     correcto &= comprobar(vista.getTexture().copyToImage().saveToFile(
-        raiz + ".codex_tmp/encuentros_vista.png"), "vista sobre suelo");
+        obtenerCarpetaSalidasPrueba() + "/encuentros_vista.png"), "vista sobre suelo");
     std::cout << (correcto ? "Aspecto encuentros OK\n" : "Aspecto encuentros FALLO\n");
     return correcto ? 0 : 1;
 }

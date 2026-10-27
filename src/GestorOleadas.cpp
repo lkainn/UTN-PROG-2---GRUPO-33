@@ -37,7 +37,10 @@ GestorOleadas::GestorOleadas()
       // Semilla fija a proposito: mientras estamos probando conviene que las
       // partidas sean repetibles. Para que cada partida sea distinta se
       // reemplaza por std::random_device{}().
-      generador(20261005u),
+      generador(0x135288du),
+      // Las estadisticas de cada variante salen de datos/Enemigos.dat. Se lee
+      // una sola vez, al empezar: durante la partida no se vuelve al disco.
+      catalogo(ArchivoEnemigos().leerCatalogo()),
       totalEliminados(0),
       jefeGenerado(false),
       jefeDerrotado(false),
@@ -64,6 +67,7 @@ void GestorOleadas::actualizar(Posicion posicionJugador, float dt) {
 }
 
 void GestorOleadas::reiniciar() {
+    catalogo = ArchivoEnemigos().leerCatalogo();
     enemigos.clear();
     tiempoPartida = 0.0f;
     tiempoAcumulado = 0.0f;
@@ -207,6 +211,30 @@ TipoEnemigo GestorOleadas::variantePorAparecer() {
     }
 }
 
+// El id del catalogo es el del enum mas uno: BASICO es 1, RAPIDO 2, y asi.
+const RegistroEnemigo* GestorOleadas::registroDe(TipoEnemigo tipo) const {
+    const int idBuscado = (int)tipo + 1;
+
+    for (const RegistroEnemigo& registro : catalogo) {
+        if (registro.idEnemigo == idBuscado) {
+            return &registro;
+        }
+    }
+    return NULL;
+}
+
+// Si el catalogo trae la variante se usan sus valores; si no, se cae en los
+// que estan escritos en crearEnemigo(). Asi un archivo incompleto no deja al
+// juego sin enemigos.
+Enemigo GestorOleadas::fabricar(TipoEnemigo tipo, float x, float y) const {
+    const RegistroEnemigo* registro = registroDe(tipo);
+
+    if (registro != NULL) {
+        return crearEnemigoDesdeCatalogo(*registro, x, y);
+    }
+    return crearEnemigo(tipo, x, y);
+}
+
 // El jefe aparece una sola vez por partida, al llegar a su minuto. No pasa por
 // el temporizador de los comunes ni por el techo de vivos: si el techo estuviera
 // lleno el jefe nunca saldria y la partida no se podria ganar.
@@ -216,7 +244,7 @@ void GestorOleadas::generarJefeSiCorresponde(Posicion posicionJugador) {
     }
 
     const Posicion aparicion = posicionDeAparicion(posicionJugador);
-    enemigos.push_back(crearEnemigo(JEFE, aparicion.x, aparicion.y));
+    enemigos.push_back(fabricar(JEFE, aparicion.x, aparicion.y));
 
     // Se guarda su identificador para reconocerlo despues: el vector se
     // reordena al limpiar muertos, asi que la posicion no sirve como referencia.
@@ -263,7 +291,7 @@ void GestorOleadas::generarSiCorresponde(Posicion posicionJugador, float dt) {
 
     const Posicion aparicion = posicionDeAparicion(posicionJugador);
     enemigos.push_back(
-        crearEnemigo(variantePorAparecer(), aparicion.x, aparicion.y));
+        fabricar(variantePorAparecer(), aparicion.x, aparicion.y));
 }
 
 void GestorOleadas::moverEnemigos(Posicion posicionJugador, float dt) {

@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include "EntornoDatosPrueba.h"
 #include <array>
 #include <vector>
 #include <random>
@@ -43,6 +44,10 @@ ObjetoEncuentro* siguiente(Juego& juego, TipoEncuentro tipo)
 
 int main()
 {
+    if (!prepararDatosPrueba())
+    {
+        return 1;
+    }
     bool correcto = true;
     EncuentroAleatorio mapa(42);
     EncuentroAleatorio otro(42);

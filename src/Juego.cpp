@@ -2,6 +2,9 @@
 
 #include "Configuracion.h"
 #include "SistemaColisiones.h"
+#include "ArchivoJugadores.h"
+#include "ArchivoMejoras.h"
+#include "ArchivoPartidas.h"
 
 #include <algorithm>
 #include <array>
@@ -178,6 +181,12 @@ void Juego::procesarEventos() {
                 jugador.recibirDano(20);
             } else if (tecla->scancode == sf::Keyboard::Scancode::E) {
                 jugador.ganarExperiencia(40);
+            } else if (tecla->scancode == sf::Keyboard::Scancode::U) {
+                ventana.setTitle(comprarMejoraPermanente() ?
+                    "MEJORA PERMANENTE: Vida maxima aumentada" : "MEJORA NO DISPONIBLE");
+            } else if (tecla->scancode == sf::Keyboard::Scancode::N) {
+                ventana.setTitle(reiniciarProgreso() ?
+                    "PROGRESO REINICIADO: Nueva partida" : "NO SE PUDO REINICIAR EL PROGRESO");
             }
         }
     }
@@ -203,6 +212,7 @@ void Juego::actualizar() {
     actualizarArmas(segundos);
     jugador.procesarEntrada();
     jugador.actualizar(false);
+    _aspectoJugador.actualizar(jugador.getPosicion());
     _escenario.actualizar(jugador.getPosicion());
     actualizarEncuentros(segundos);
     actualizarEnemigos(segundos);
@@ -256,6 +266,14 @@ void Juego::actualizarPartida(float segundos)
     }
     if (!_partida.estaEnCurso())
     {
+        ArchivoPartidas historial;
+        _partidaGuardada = historial.agregar(_partida);
+        ArchivoJugadores archivoJugador;
+        RegistroJugador perfil = archivoJugador.leer();
+        perfil.puntajeMaximo = std::max(perfil.puntajeMaximo, _partida.obtenerPuntaje());
+        perfil.nivelMaximo = std::max(perfil.nivelMaximo, jugador.getNivel());
+        perfil.chatarraTotal = jugador.getChatarra();
+        archivoJugador.guardar(perfil);
         _estado = EstadoJuego::Resultado;
         _opcionMenu = 0;
     }
@@ -435,13 +453,26 @@ void Juego::dibujar() {
             ventana.draw(figura);
         }
     }
-    jugador.dibujar(ventana);
+    const bool herido = tiempoRestanteDanoContacto >
+        SEGUNDOS_ENTRE_DANOS_CONTACTO - 0.12f;
+    const int armaLejana = _inventarioArmas.obtenerIdSlot(1);
+    if (armaLejana != 0)
+    {
+        _aspectoArmas.dibujarEnMano(ventana, obtenerAnclajeArma(1), _angulosArmas[1],
+                                  armaLejana, _armasReflejadas[1]);
+    }
+    _aspectoJugador.dibujar(ventana, jugador.getPosicion(), jugador.estaVivo(), herido);
     for (std::size_t slot = 0; slot < 2; ++slot)
     {
         const int idArma = _inventarioArmas.obtenerIdSlot(slot);
         if (idArma != 0)
         {
-            _aspectoArmas.dibujar(ventana, obtenerAnclajeArma(slot), _angulosArmas[slot], idArma);
+            if (slot == 0)
+            {
+                _aspectoArmas.dibujarEnMano(ventana, obtenerAnclajeArma(slot), _angulosArmas[slot],
+                                          idArma, _armasReflejadas[slot]);
+            }
+            _aspectoJugador.dibujarAgarre(ventana, jugador.getPosicion(), slot, jugador.estaVivo(), herido);
         }
     }
     for (const Proyectil& proyectil : _proyectiles)
@@ -801,33 +832,49 @@ void Juego::generarRecompensa(const Enemigo& enemigo) {
 
 Posicion Juego::obtenerAnclajeArma(std::size_t slot) const
 {
-    Posicion posicion = jugador.getPosicion();
-    if (_inventarioArmas.obtenerIdSlot(1) != 0)
-    {
-        posicion.y += slot == 0 ? -16.0f : 16.0f;
-    }
-    return posicion;
+    return _aspectoJugador.obtenerMano(jugador.getPosicion(), slot, jugador.estaVivo());
 }
 
 void Juego::actualizarDisparoAutomatico()
 {
+    if (!jugador.estaVivo() || _estacionMejoras.menuAbierto())
+    {
+        return;
+    }
+    float alcance = 0.0f;
+    for (std::size_t slot = 0; slot < 2; ++slot)
+    {
+        const int idArma = _inventarioArmas.obtenerIdSlot(slot);
+        if (idArma != 0)
+        {
+            alcance = std::max(alcance, obtenerArmaPorId(idArma).obtenerAlcance());
+        }
+    }
+    Posicion objetivo{};
+    float distanciaCuadrada = 0.0f;
+    if (buscarObjetivo(alcance, objetivo, distanciaCuadrada))
+    {
+        // Ambos disparos usan la misma pose y los anclajes de ese cuadro.
+        _aspectoJugador.orientarHacia(jugador.getPosicion(), objetivo);
+    }
+    else
+    {
+        const Posicion direccion = _aspectoJugador.obtenerDireccionVista();
+        const Posicion centro = jugador.getPosicion();
+        objetivo = {centro.x + direccion.x * 1000.0f, centro.y + direccion.y * 1000.0f};
+    }
     for (std::size_t slot = 0; slot < 2; ++slot)
     {
         if (_inventarioArmas.obtenerIdSlot(slot) != 0)
         {
+            actualizarApuntadoArma(slot, objetivo);
             dispararArma(slot);
         }
     }
 }
 
-void Juego::dispararArma(std::size_t slot)
+bool Juego::buscarObjetivo(float alcance, Posicion& centroObjetivo, float& distanciaMinima) const
 {
-    Arma& arma = obtenerArmaPorId(_inventarioArmas.obtenerIdSlot(slot));
-    if (!jugador.estaVivo() || _estacionMejoras.menuAbierto())
-    {
-        return;
-    }
-
     const FormaColision formaJugador = jugador.getFormaColision();
     const Posicion centroJugador{
         formaJugador.x + formaJugador.ancho / 2.0f,
@@ -835,9 +882,8 @@ void Juego::dispararArma(std::size_t slot)
     };
 
     bool hayObjetivo = false;
-    float distanciaMinima = std::numeric_limits<float>::max();
+    distanciaMinima = std::numeric_limits<float>::max();
     const FormaColision areaVisible = _escenario.obtenerAreaVisible();
-    Posicion centroObjetivo{0.0f, 0.0f};
     for (const Enemigo& enemigo : _gestorOleadas.obtenerEnemigos())
     {
         if (!enemigo.estaVivo()) {
@@ -855,7 +901,7 @@ void Juego::dispararArma(std::size_t slot)
         const float distanciaCuadrada =
             diferenciaX * diferenciaX + diferenciaY * diferenciaY;
         if (!std::isfinite(distanciaCuadrada) ||
-            distanciaCuadrada > arma.obtenerAlcance() * arma.obtenerAlcance() ||
+            distanciaCuadrada > alcance * alcance ||
             centroEnemigo.x < areaVisible.x ||
             centroEnemigo.y < areaVisible.y ||
             centroEnemigo.x >= areaVisible.x + areaVisible.ancho ||
@@ -870,15 +916,35 @@ void Juego::dispararArma(std::size_t slot)
         }
     }
 
-    if (!hayObjetivo) {
+    return hayObjetivo;
+}
+
+void Juego::actualizarApuntadoArma(std::size_t slot, Posicion objetivo)
+{
+    const Posicion anclaje = obtenerAnclajeArma(slot);
+    if (objetivo.x != anclaje.x || objetivo.y != anclaje.y)
+    {
+        _armasReflejadas[slot] = objetivo.x < anclaje.x;
+        _angulosArmas[slot] = _aspectoArmas.obtenerAnguloDesdeMano(
+            anclaje, objetivo, _inventarioArmas.obtenerIdSlot(slot), _armasReflejadas[slot]);
+    }
+}
+
+void Juego::dispararArma(std::size_t slot)
+{
+    Arma& arma = obtenerArmaPorId(_inventarioArmas.obtenerIdSlot(slot));
+    if (!jugador.estaVivo() || _estacionMejoras.menuAbierto())
+    {
+        return;
+    }
+    Posicion centroObjetivo{};
+    float distanciaMinima = 0.0f;
+    if (!buscarObjetivo(arma.obtenerAlcance(), centroObjetivo, distanciaMinima))
+    {
         return;
     }
 
-    const Posicion anclaje = obtenerAnclajeArma(slot);
-    if (centroObjetivo.x != anclaje.x || centroObjetivo.y != anclaje.y)
-    {
-        _angulosArmas[slot] = std::atan2(centroObjetivo.y - anclaje.y, centroObjetivo.x - anclaje.x);
-    }
+    actualizarApuntadoArma(slot, centroObjetivo);
     if (!arma.puedeDisparar())
     {
         return;
@@ -900,7 +966,8 @@ void Juego::dispararArma(std::size_t slot)
         alto = 10.0f;
         velocidad = 1000.0f;
     }
-    const Posicion punta = _aspectoArmas.obtenerPunta(obtenerAnclajeArma(slot), _angulosArmas[slot], arma.obtenerId());
+    const Posicion punta = _aspectoArmas.obtenerPuntaEnMano(obtenerAnclajeArma(slot),
+        _angulosArmas[slot], arma.obtenerId(), _armasReflejadas[slot]);
     // La direccion sigue el eje del canon incluso si el objetivo esta pegado al jugador.
     const float distanciaDisparo = std::min(arma.obtenerAlcance() * 0.9999f, std::max(1.0f, std::sqrt(distanciaMinima)));
     const Posicion destino{punta.x + std::cos(_angulosArmas[slot]) * distanciaDisparo,
@@ -958,6 +1025,7 @@ Arma& Juego::obtenerArmaPorId(int idArma)
 void Juego::reiniciarPrueba() {
     cancelarCompraEstacion();
     jugador.reiniciar();
+    _aspectoJugador.reiniciar(jugador.getPosicion());
     _estacionSeleccionada = nullptr;
     _opcionReemplazo = 3;
     _encuentros.generarAlrededor(jugador.getPosicion());
@@ -966,6 +1034,7 @@ void Juego::reiniciarPrueba() {
     _escenario.actualizar(jugador.getPosicion());
     _gestorOleadas.reiniciar();
     _partida = Partida(1);
+    _partidaGuardada = false;
     _eliminadosRegistrados = 0;
     _proyectiles.clear();
     armaPrueba.reiniciar();
@@ -974,6 +1043,7 @@ void Juego::reiniciarPrueba() {
     _canonEnergiaPrueba.reiniciar();
     seleccionarSlotArma(0);
     _angulosArmas.fill(0.0f);
+    _armasReflejadas.fill(false);
     indicadoresDanio.clear();
     recursosSuelo.clear();
     indicadoresRecurso.clear();
@@ -1338,6 +1408,7 @@ void Juego::dibujarMenuPrincipal()
 
 void Juego::iniciarNuevaPartida()
 {
+    _partidaGuardada = false;
     cancelarCompraEstacion();
     _estacionSeleccionada = nullptr;
     jugador = Jugador{};
@@ -1351,6 +1422,48 @@ void Juego::iniciarNuevaPartida()
     _opcionMenu = 0;
 }
 
+bool Juego::comprarMejoraPermanente()
+{
+    constexpr int COSTO = 10;
+    if (!jugador.estaVivo() || jugador.getChatarra() < COSTO)
+    {
+        return false;
+    }
+    ArchivoMejoras archivo;
+    std::vector<Mejora> catalogo = archivo.leerCatalogo();
+    for (Mejora& mejora : catalogo)
+    {
+        if (mejora.idMejora != 1 || mejora.nivelActual >= mejora.nivelMaximo)
+        {
+            continue;
+        }
+        if (!jugador.gastarChatarra(COSTO))
+        {
+            return false;
+        }
+        ++mejora.nivelActual;
+        if (!archivo.guardarCatalogo(catalogo))
+        {
+            jugador.ganarChatarra(COSTO);
+            return false;
+        }
+        jugador.aumentarVidaMaxima(20);
+        return true;
+    }
+    return false;
+}
+
+bool Juego::reiniciarProgreso()
+{
+    cancelarCompraEstacion();
+    if (!jugador.restablecerProgreso())
+    {
+        return false;
+    }
+    iniciarNuevaPartida();
+    return true;
+}
+
 void Juego::dibujarResultado()
 {
     ventana.setView(ventana.getDefaultView());
@@ -1359,13 +1472,14 @@ void Juego::dibujarResultado()
     {
         const sf::Vector2f tamanio = ventana.getDefaultView().getSize();
         const std::string resultado = _partida.fueVictoria() ? "VICTORIA" : "DERROTA";
-        const std::array<std::string, 8> lineas{{resultado,
+        const std::array<std::string, 9> lineas{{resultado,
             "Duracion: " + std::to_string(_partida.obtenerDuracionSegundos()) + " s",
             "Enemigos eliminados: " + std::to_string(_partida.obtenerEnemigosEliminados()),
             "Chatarra recogida: " + std::to_string(_partida.obtenerChatarraObtenida()),
             "Nivel alcanzado: " + std::to_string(_partida.obtenerNivelAlcanzado()),
             "Puntaje: " + std::to_string(_partida.obtenerPuntaje()),
-            "Enter: volver a jugar", "Escape: menu principal"}};
+            "Enter: volver a jugar", "Escape: menu principal",
+            _partidaGuardada ? "Resultado guardado" : "No se pudo guardar el resultado"}};
         for (std::size_t indice = 0; indice < lineas.size(); ++indice)
         {
             sf::Text texto(fuenteDanio, lineas[indice], indice == 0 ? 54 : 28);
