@@ -52,9 +52,11 @@
 		<Unit filename="include/AspectoArmas.h" />
         <Unit filename="include/AspectoEncuentros.h" />
 		<Unit filename="include/Configuracion.h" />
+		<Unit filename="include/ArchivoEnemigos.h" />
 		<Unit filename="include/Enemigo.h" />
 		<Unit filename="include/Escenario.h" />
 		<Unit filename="include/GestorOleadas.h" />
+		<Unit filename="include/ArchivoPartidas.h" />
 		<Unit filename="include/Partida.h" />
 		<Unit filename="include/EstacionMejoras.h" />
 		<Unit filename="include/InventarioArmas.h" />
@@ -68,9 +70,11 @@
 		<Unit filename="src/AspectoProyectiles.cpp" />
 		<Unit filename="src/AspectoArmas.cpp" />
         <Unit filename="src/AspectoEncuentros.cpp" />
+		<Unit filename="src/ArchivoEnemigos.cpp" />
 		<Unit filename="src/Enemigo.cpp" />
 		<Unit filename="src/Escenario.cpp" />
 		<Unit filename="src/GestorOleadas.cpp" />
+		<Unit filename="src/ArchivoPartidas.cpp" />
 		<Unit filename="src/Partida.cpp" />
 		<Unit filename="src/EstacionMejoras.cpp" />
 		<Unit filename="src/InventarioArmas.cpp" />

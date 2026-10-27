@@ -4,3 +4,7 @@ dependencias/SFML/
 dependencias/*.zip
 *.layout
 *.depend
+
+# Historial de partidas: lo genera cada uno al jugar, no es contenido
+# del juego. Versionarlo daria conflictos binarios en cada partida.
+datos/Partidas.dat

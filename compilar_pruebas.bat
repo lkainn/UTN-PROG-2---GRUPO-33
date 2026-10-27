@@ -22,7 +22,7 @@ REM Solo la prueba del modulo de enemigos: src\main.cpp queda afuera a
 REM proposito, porque prueba_enemigos.cpp tiene su propio main.
 "%COMPILADOR%" -std=c++17 -Wall -Wextra ^
     -Iinclude -I"%SFML%\include" ^
-    pruebas\prueba_enemigos.cpp src\Enemigo.cpp src\GestorOleadas.cpp src\Partida.cpp ^
+    pruebas\prueba_enemigos.cpp src\Enemigo.cpp src\ArchivoEnemigos.cpp src\GestorOleadas.cpp src\Partida.cpp src\ArchivoPartidas.cpp ^
     -L"%SFML%\lib" ^
     -lsfml-graphics-d -lsfml-window-d -lsfml-system-d ^
     -o bin\Debug\PruebaEnemigos.exe
