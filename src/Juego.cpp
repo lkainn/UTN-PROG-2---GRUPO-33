@@ -97,7 +97,7 @@ bool cargarFuenteDanio(sf::Font& fuente) {
 Juego::Juego()
     : ventana(
           sf::VideoMode({Configuracion::ANCHO_VENTANA, Configuracion::ALTO_VENTANA}),
-          "Scrap Protocol"),
+          U"El \u00DAltimo Recolector"),
       _escenario{},
       _gestorOleadas{},
       _aspectoProyectiles{},
@@ -1334,7 +1334,7 @@ void Juego::dibujarMenuPrincipal()
     if (fuenteDanioDisponible)
     {
         const bool esPausa = _estado == EstadoJuego::Pausa;
-        sf::Text texto(fuenteDanio, esPausa ? "PAUSA" : "SCRAP PROTOCOL", 56);
+        sf::Text texto(fuenteDanio, esPausa ? U"PAUSA" : U"EL \u00DALTIMO RECOLECTOR", 56);
         texto.setFillColor(sf::Color(255, 190, 55));
         const sf::FloatRect limites = texto.getLocalBounds();
         texto.setOrigin({limites.position.x + limites.size.x / 2.0f,
