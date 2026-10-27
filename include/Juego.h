@@ -3,6 +3,7 @@
 #include "Arma.h"
 #include "AspectoProyectiles.h"
 #include "AspectoArmas.h"
+#include "AspectoJugador.h"
 #include "AspectoEncuentros.h"
 #include "GestorOleadas.h"
 #include "Escenario.h"
@@ -88,11 +89,14 @@ private:
     Jugador jugador;
     GestorOleadas _gestorOleadas;
     Partida _partida{1};
+    bool _partidaGuardada = false;
     int _eliminadosRegistrados = 0;
     AspectoProyectiles _aspectoProyectiles;
     AspectoArmas _aspectoArmas;
+    AspectoJugador _aspectoJugador;
     AspectoEncuentros _aspectoEncuentros;
     std::array<float, 2> _angulosArmas{};
+    std::array<bool, 2> _armasReflejadas{};
     std::vector<Proyectil> _proyectiles;
     Arma armaPrueba;
     Arma _metralletaPrueba;
@@ -112,6 +116,8 @@ private:
     void actualizarEnemigos(float segundos);
     void actualizarPartida(float segundos);
     void iniciarNuevaPartida();
+    bool comprarMejoraPermanente();
+    bool reiniciarProgreso();
     void dibujarResultado();
     Posicion obtenerAnclajeArma(std::size_t slot) const;
     Arma& obtenerArmaPorId(int idArma);
@@ -126,6 +132,8 @@ private:
     void dibujarIndicadoresRecurso();
     void dibujarInterfaz();
     void actualizarDisparoAutomatico();
+    bool buscarObjetivo(float alcance, Posicion& objetivo, float& distanciaCuadrada) const;
+    void actualizarApuntadoArma(std::size_t slot, Posicion objetivo);
     void actualizarArmas(float segundos);
     void seleccionarArmaPrueba(TipoArmaPrueba tipo);
     void seleccionarSlotArma(std::size_t slot);

@@ -1,4 +1,5 @@
 #include "Arma.h"
+#include "EntornoDatosPrueba.h"
 #include "Enemigo.h"
 #include "Jugador.h"
 #include "GestorOleadas.h"
@@ -38,6 +39,10 @@ bool comprobar(bool condicion, const char* caso)
 
 int main()
 {
+    if (!prepararDatosPrueba())
+    {
+        return 1;
+    }
     bool correcto = true;
     Juego juego;
     juego.ventana.setVisible(false);

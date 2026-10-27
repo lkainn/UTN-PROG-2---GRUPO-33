@@ -6,10 +6,10 @@
 // Estructura para representar las mejoras de progresion
 struct Mejora {
     int idMejora = 0;
-    char nombre[1] = "";
+    char nombre[30] = "";
     int nivelActual = 0;
     int nivelMaximo = 1;
-    char descripcion[2] = "";
+    char descripcion[100] = "";
     };
 
 class Jugador {
@@ -27,7 +27,9 @@ private:
     sf::RectangleShape _formaGrafica;  // Representacion visual para pruebas
 
     void validarLimites();
+    void moverEnDireccion(float direccionX, float direccionY);
     void verificarSubidaNivel();
+    bool guardarProgreso();
 
 public:
     Jugador();
@@ -42,6 +44,7 @@ public:
     void aumentarVelocidad(float cantidad);
     void reiniciar();
     void dibujar(sf::RenderWindow& ventana);
+    bool restablecerProgreso();
 
     Posicion getPosicion() const;
     FormaColision getFormaColision() const;

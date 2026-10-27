@@ -1,18 +1,35 @@
 #include "Jugador.h"
 #include "Configuracion.h"
+#include "ArchivoJugadores.h"
+#include "ArchivoMejoras.h"
+#include <algorithm>
 #include <limits>
+#include <cmath>
 
 Jugador::Jugador() {
     // Inicializa la posicion centrada
     _posicion = { Configuracion::ANCHO_VENTANA / 2.0f, Configuracion::ALTO_VENTANA / 2.0f };
-    // Las estadisticas iniciales del personaje
+    ArchivoJugadores archivo;
+    const RegistroJugador registro = archivo.leer();
+    _nivel = registro.nivelMaximo;
+    _chatarra = registro.chatarraTotal;
     _velocidad = 5.0f;
-    _vidaMaxima = 100;
+    _vidaMaxima = 100 + (_nivel - 1) * 20;
+    _experienciaSiguienteNivel = 100 + (_nivel - 1) * 50;
+    ArchivoMejoras archivoMejoras;
+    for (const Mejora& mejora : archivoMejoras.leerCatalogo())
+    {
+        if (mejora.idMejora == 1)
+        {
+            _vidaMaxima += mejora.nivelActual * 20;
+        }
+        else if (mejora.idMejora == 2)
+        {
+            _velocidad += mejora.nivelActual;
+        }
+    }
     _vida = _vidaMaxima;
-    _nivel = 1;
     _experiencia = 0;
-    _experienciaSiguienteNivel = 100;
-    _chatarra = 0;
     _vivo = true;
 
     // Configuracion cuadrado para pruebas
@@ -22,20 +39,42 @@ Jugador::Jugador() {
     _formaGrafica.setPosition({ _posicion.x, _posicion.y });
 }
 
-void Jugador::procesarEntrada() {
-    if (!_vivo) return;
-    // Movimientos personaje WASD o flechas
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) { _posicion.y -= _velocidad;
+void Jugador::procesarEntrada()
+{
+    if (!_vivo)
+    {
+        return;
     }
+    float direccionX = 0.0f;
+    float direccionY = 0.0f;
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))
+    {
+        direccionY -= 1.0f;
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))
+    {
+        direccionY += 1.0f;
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))
+    {
+        direccionX -= 1.0f;
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))
+    {
+        direccionX += 1.0f;
+    }
+    moverEnDireccion(direccionX, direccionY);
+}
 
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) { _posicion.y += _velocidad;
+void Jugador::moverEnDireccion(float direccionX, float direccionY)
+{
+    const float norma = std::hypot(direccionX, direccionY);
+    if (!_vivo || !std::isfinite(norma) || norma < 0.0001f)
+    {
+        return;
     }
-
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) { _posicion.x -= _velocidad;
-    }
-
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) { _posicion.x += _velocidad;
-    }
+    _posicion.x += direccionX / norma * _velocidad;
+    _posicion.y += direccionY / norma * _velocidad;
 }
 
 void Jugador::validarLimites() {
@@ -92,6 +131,7 @@ void Jugador::verificarSubidaNivel() {
     _experienciaSiguienteNivel += 50;
     _vidaMaxima += 20;
     _vida = _vidaMaxima; // Aumenta vida completa al subir de nivel
+    guardarProgreso();
     }
 }
 
@@ -104,6 +144,7 @@ void Jugador::ganarExperiencia(int cantidad) {
 void Jugador::ganarChatarra(int cantidad) {
     if (!_vivo || cantidad <=0) return;
     _chatarra += cantidad;
+    guardarProgreso();
  }
 
 // Metodos para la estacion de prueba
@@ -114,6 +155,11 @@ bool Jugador::gastarChatarra(int cantidad)
         return false;
     }
     _chatarra -= cantidad;
+    if (!guardarProgreso())
+    {
+        _chatarra += cantidad;
+        return false;
+    }
     return true;
 }
 
@@ -224,4 +270,30 @@ void Jugador::cargarEstado(int vida, int nivel, int exp, int chatarra) {  // Asi
             _vivo = false;
             _formaGrafica.setFillColor(sf::Color(100, 100, 100)); // Gris si esta muerto
         }
+}
+
+bool Jugador::guardarProgreso()
+{
+    ArchivoJugadores archivo;
+    RegistroJugador registro = archivo.leer();
+    registro.nivelMaximo = std::max(registro.nivelMaximo, _nivel);
+    registro.chatarraTotal = _chatarra;
+    return archivo.guardar(registro);
+}
+
+bool Jugador::restablecerProgreso()
+{
+    ArchivoJugadores archivo;
+    ArchivoMejoras archivoMejoras;
+    const std::vector<Mejora> iniciales{
+        {1, "Vida Maxima", 0, 5, "Aumenta tu salud limite"},
+        {2, "Velocidad", 0, 3, "Corres mas rapido"}};
+    if (!archivo.guardar({1, 0, 0}) || !archivoMejoras.guardarCatalogo(iniciales))
+    {
+        return false;
+    }
+    _velocidad = 5.0f;
+    cargarEstado(100, 1, 0, 0);
+    reiniciar();
+    return true;
 }
