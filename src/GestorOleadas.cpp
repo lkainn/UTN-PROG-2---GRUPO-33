@@ -37,7 +37,7 @@ GestorOleadas::GestorOleadas()
       // Semilla fija a proposito: mientras estamos probando conviene que las
       // partidas sean repetibles. Para que cada partida sea distinta se
       // reemplaza por std::random_device{}().
-      generador(20261005u),
+      generador(0x135288du),
       // Las estadisticas de cada variante salen de datos/Enemigos.dat. Se lee
       // una sola vez, al empezar: durante la partida no se vuelve al disco.
       catalogo(ArchivoEnemigos().leerCatalogo()),
@@ -67,6 +67,7 @@ void GestorOleadas::actualizar(Posicion posicionJugador, float dt) {
 }
 
 void GestorOleadas::reiniciar() {
+    catalogo = ArchivoEnemigos().leerCatalogo();
     enemigos.clear();
     tiempoPartida = 0.0f;
     tiempoAcumulado = 0.0f;

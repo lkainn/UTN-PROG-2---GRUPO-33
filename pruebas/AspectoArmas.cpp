@@ -1,4 +1,5 @@
 #include "AspectoArmas.h"
+#include "EntornoDatosPrueba.h"
 #include "Arma.h"
 #include "Enemigo.h"
 #include "Jugador.h"
@@ -57,6 +58,10 @@ sf::IntRect limitesVisibles(const sf::Image& imagen)
 
 int main()
 {
+    if (!prepararDatosPrueba())
+    {
+        return 1;
+    }
     bool correcto = true;
     AspectoArmas aspecto;
     AspectoArmas respaldo("recursos/no_existe");
@@ -122,8 +127,8 @@ int main()
     correcto &= comprobar(limitesVisibles(superficie.getTexture().copyToImage()).size.x == 0,
         "angulo no finito no contamina render");
     muestra.display();
-    std::filesystem::create_directories(".codex_tmp");
-    correcto &= comprobar(muestra.getTexture().copyToImage().saveToFile(".codex_tmp/armas_vista.png"),
+    std::filesystem::create_directories(obtenerCarpetaSalidasPrueba());
+    correcto &= comprobar(muestra.getTexture().copyToImage().saveToFile(obtenerCarpetaSalidasPrueba() + "/armas_vista.png"),
         "muestra a escala de juego guardada");
 
     Juego juego;
@@ -135,18 +140,50 @@ int main()
         "apunta y dispara al objetivo derecho");
     enemigos[0] = crearEnemigo(BASICO, 932.0f, 700.0f);
     juego.actualizarDisparoAutomatico();
-    correcto &= comprobar(juego._proyectiles.size() == 1 && std::abs(juego._angulosArmas[0] - PI / 2.0f) < 0.15f,
+    const FormaColision objetivo = enemigos[0].obtenerFormaColision();
+    const Posicion bocaEnMano = juego._aspectoArmas.obtenerPuntaEnMano(
+        juego.obtenerAnclajeArma(0), juego._angulosArmas[0], 1, juego._armasReflejadas[0]);
+    const float diferenciaX = objetivo.x + objetivo.ancho / 2.0f - bocaEnMano.x;
+    const float diferenciaY = objetivo.y + objetivo.alto / 2.0f - bocaEnMano.y;
+    const float eje = juego._angulosArmas[0];
+    correcto &= comprobar(juego._proyectiles.size() == 1 &&
+        std::abs(diferenciaX * std::sin(eje) - diferenciaY * std::cos(eje)) < 0.001f &&
+        diferenciaX * std::cos(eje) + diferenciaY * std::sin(eje) > 0.0f,
         "sigue objetivo durante cooldown sin disparo adicional");
-    const float anguloSinObjetivo = juego._angulosArmas[0];
+    const Posicion vistaSinObjetivo = juego._aspectoJugador.obtenerDireccionVista();
+    const std::size_t disparosSinObjetivo = juego._proyectiles.size();
     enemigos.clear();
     juego.actualizarDisparoAutomatico();
-    correcto &= comprobar(juego._angulosArmas[0] == anguloSinObjetivo,
-        "sin objetivo conserva ultima orientacion");
+    const Posicion vistaActual = juego._aspectoJugador.obtenerDireccionVista();
+    correcto &= comprobar(vistaActual.x == vistaSinObjetivo.x && vistaActual.y == vistaSinObjetivo.y &&
+        juego._proyectiles.size() == disparosSinObjetivo,
+        "sin enemigos conserva la vista y no dispara");
+    const Posicion centroSinObjetivo = juego.jugador.getPosicion();
+    for (std::size_t slot = 0; slot < 2; ++slot)
+    {
+        const int idArma = juego._inventarioArmas.obtenerIdSlot(slot);
+        if (idArma == 0)
+        {
+            continue;
+        }
+        const Posicion boca = juego._aspectoArmas.obtenerPuntaEnMano(juego.obtenerAnclajeArma(slot),
+            juego._angulosArmas[slot], idArma, juego._armasReflejadas[slot]);
+        const float x = centroSinObjetivo.x + vistaSinObjetivo.x * 1000.0f - boca.x;
+        const float y = centroSinObjetivo.y + vistaSinObjetivo.y * 1000.0f - boca.y;
+        const float distancia = std::hypot(x, y);
+        const float angulo = juego._angulosArmas[slot];
+        correcto &= comprobar(distancia > 0.0f &&
+            std::abs(x * std::sin(angulo) - y * std::cos(angulo)) < distancia * 0.00001f &&
+            x * std::cos(angulo) + y * std::sin(angulo) > 0.0f,
+            "sin enemigos el arma apunta en la direccion del personaje desde su boca");
+    }
     juego._inventarioArmas.aplicarOferta({2, RarezaMejora::Comun, false});
     juego.seleccionarArmaPrueba(Juego::TipoArmaPrueba::Metralleta);
     juego.dibujar();
     juego.reiniciarPrueba();
-    correcto &= comprobar(juego._angulosArmas[0] == 0.0f && juego._angulosArmas[1] == 0.0f && juego.obtenerArmaSeleccionada().obtenerId() == 1,
+    correcto &= comprobar(juego._angulosArmas[0] == 0.0f && juego._angulosArmas[1] == 0.0f &&
+        !juego._armasReflejadas[0] && !juego._armasReflejadas[1] &&
+        juego.obtenerArmaSeleccionada().obtenerId() == 1,
         "reinicio restaura orientacion y pistola");
     juego.ventana.close();
     std::cout << (correcto ? "Armas: render, orientacion, respaldo y reinicio correctos\n" : "Hay fallos\n");

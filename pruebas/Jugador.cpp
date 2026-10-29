@@ -1,6 +1,12 @@
+#include <SFML/Graphics.hpp>
+#include "EntornoDatosPrueba.h"
+#define private public
 #include "Jugador.h"
+#undef private
 
 #include <iostream>
+#include <cmath>
+#include <limits>
 
 namespace {
 bool verificar(bool condicion, const char* mensaje) {
@@ -12,12 +18,33 @@ bool verificar(bool condicion, const char* mensaje) {
 }
 
 int main() {
+    if (!prepararDatosPrueba())
+    {
+        return 1;
+    }
     bool correcto = true;
 
     Jugador jugador;
     correcto &= verificar(jugador.getVida() == 100, "vida inicial");
     correcto &= verificar(jugador.getNivel() == 1, "nivel inicial");
     correcto &= verificar(jugador.estaVivo(), "estado inicial vivo");
+    for (int x = -1; x <= 1; ++x)
+    {
+        for (int y = -1; y <= 1; ++y)
+        {
+            jugador.setPosicion({500.0f, 500.0f});
+            jugador.moverEnDireccion(static_cast<float>(x), static_cast<float>(y));
+            const Posicion posicion = jugador.getPosicion();
+            const float distancia = std::hypot(posicion.x - 500.0f, posicion.y - 500.0f);
+            const float esperada = x == 0 && y == 0 ? 0.0f : jugador.getVelocidad();
+            correcto &= verificar(std::abs(distancia - esperada) < 0.0001f,
+                                  "cardinales y diagonales tienen igual velocidad; opuestos se cancelan");
+        }
+    }
+    jugador.setPosicion({500, 500});
+    jugador.moverEnDireccion(std::numeric_limits<float>::infinity(), 1);
+    correcto &= verificar(jugador.getPosicion().x == 500 && jugador.getPosicion().y == 500,
+                          "direccion no finita no altera posicion");
 
     jugador.recibirDano(20);
     correcto &= verificar(jugador.getVida() == 80, "dano recibido");

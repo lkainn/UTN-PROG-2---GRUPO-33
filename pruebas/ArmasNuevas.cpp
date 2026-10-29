@@ -1,4 +1,5 @@
 #include "Arma.h"
+#include "EntornoDatosPrueba.h"
 #include "AspectoArmas.h"
 #include "AspectoProyectiles.h"
 #include "Enemigo.h"
@@ -40,6 +41,10 @@ Enemigo crearObjetivo(float x, float y, int vida, float tamanio = 56.0f)
 
 int main()
 {
+    if (!prepararDatosPrueba())
+    {
+        return 1;
+    }
     bool correcto = true;
     Arma escopeta(3, "Escopeta", 12, 0.8f, 300.0f, 5, 5, DISPERSION);
     std::vector<Proyectil> perdigones;
@@ -103,17 +108,25 @@ int main()
     juego.seleccionarArmaPrueba(Juego::TipoArmaPrueba::Escopeta);
     correcto &= comprobar(juego.obtenerArmaSeleccionada().obtenerId() == 3,
         "escopeta adquirida seleccionable");
-    const Posicion bocaEscopeta = juego._aspectoArmas.obtenerPunta(juego.obtenerAnclajeArma(1), 0.0f, 3);
+    const Posicion manoEscopeta = juego.obtenerAnclajeArma(1);
+    const float ejeEscopeta = juego._aspectoArmas.obtenerAnguloDesdeMano(
+        manoEscopeta, {manoEscopeta.x + 200.0f, manoEscopeta.y}, 3, false);
+    const Posicion bocaEscopeta = juego._aspectoArmas.obtenerPuntaEnMano(
+        manoEscopeta, ejeEscopeta, 3);
     for (int indice = 0; indice < 5; ++indice)
     {
-        const float angulo = -DISPERSION / 2.0f + DISPERSION * indice / 4.0f;
-        const float distancia = indice == 2 ? 190.0f : 200.0f;
+        const float angulo = ejeEscopeta - DISPERSION / 2.0f + DISPERSION * indice / 4.0f;
+        const float distancia = indice == 2 ? 90.0f : 140.0f;
         enemigos.push_back(crearObjetivo(bocaEscopeta.x + std::cos(angulo) * distancia - 4.0f,
                                         bocaEscopeta.y + std::sin(angulo) * distancia - 4.0f, 12, 8.0f));
     }
     dispararSeleccionada();
     correcto &= comprobar(juego._proyectiles.size() == 5, "Juego genera descarga completa");
-    juego.actualizarProyectiles(0.3f);
+    // Pasos cortos comprueban los blancos pequenos durante todo el recorrido.
+    for (int paso = 0; paso < 30; ++paso)
+    {
+        juego.actualizarProyectiles(0.01f);
+    }
     bool todosMuertos = true;
     for (const Enemigo& enemigo : enemigos)
     {
@@ -228,10 +241,19 @@ int main()
     }
     mejorado.aplicarBonificacionesArmas();
     mejorado.seleccionarSlotArma(1);
+    const Posicion centroMejorado = mejorado.jugador.getPosicion();
+    mejorado._aspectoJugador.orientarHacia(centroMejorado, {centroMejorado.x + 500, centroMejorado.y});
+    const Posicion manoMejorada = mejorado.obtenerAnclajeArma(1);
+    const float ejeMejorado = mejorado._aspectoArmas.obtenerAnguloDesdeMano(manoMejorada,
+        {manoMejorada.x + 500, manoMejorada.y}, 4, false);
+    const Posicion bocaMejorada = mejorado._aspectoArmas.obtenerPuntaEnMano(manoMejorada, ejeMejorado, 4);
     auto& objetivosMejorados = mejorado._gestorOleadas.obtenerEnemigos();
     for (int indice = 0; indice < 7; ++indice)
     {
-        objetivosMejorados.push_back(crearObjetivo(1050.0f + indice * 60.0f, 528.0f, 105));
+        // La fila sigue el eje de la boca actual, independiente de la postura del personaje.
+        const float distancia = 80.0f + indice * 60.0f;
+        objetivosMejorados.push_back(crearObjetivo(bocaMejorada.x + std::cos(ejeMejorado) * distancia - 28,
+            bocaMejorada.y + std::sin(ejeMejorado) * distancia - 28, 105));
     }
     mejorado.dispararArma(1);
     mejorado.actualizarProyectiles(0.6f);

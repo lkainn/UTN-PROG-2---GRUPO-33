@@ -1,4 +1,5 @@
 #include "AspectoProyectiles.h"
+#include "EntornoDatosPrueba.h"
 #include <cmath>
 #include <iostream>
 
@@ -16,6 +17,10 @@ bool comprobar(bool condicion, const char* caso)
 
 int main()
 {
+    if (!prepararDatosPrueba())
+    {
+        return 1;
+    }
     bool correcto = true;
     AspectoProyectiles aspecto;
     AspectoProyectiles sinArchivos("recursos/no_existe");
@@ -149,7 +154,7 @@ int main()
     muestra.display();
     if (fuenteDisponible)
     {
-        correcto &= comprobar(muestra.getTexture().copyToImage().saveToFile(".codex_tmp/proyectiles_vista.png"),
+        correcto &= comprobar(muestra.getTexture().copyToImage().saveToFile(obtenerCarpetaSalidasPrueba() + "/proyectiles_vista.png"),
             "vista previa guardada");
     }
     std::cout << (correcto ? "Texturas: carga, alfa, rotacion y respaldo correctos\n" : "Hay fallos\n");

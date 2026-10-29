@@ -1,4 +1,5 @@
 // Prueba aislada del modulo de enemigos.
+#include "EntornoDatosPrueba.h"
 //
 // No forma parte del juego: tiene su propio main y su propia ventana, para
 // poder demostrar el modulo sin depender del trabajo de los otros dos.
@@ -66,6 +67,10 @@ sf::Color colorDeVariante(int idEnemigo) {
 }  // namespace
 
 int main() {
+    if (!prepararDatosPrueba())
+    {
+        return 1;
+    }
     sf::RenderWindow ventana(sf::VideoMode({ANCHO, ALTO}),
                              "Prueba del modulo de enemigos");
     ventana.setFramerateLimit(60);

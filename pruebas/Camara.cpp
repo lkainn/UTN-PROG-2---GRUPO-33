@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include "EntornoDatosPrueba.h"
 #include <array>
 #include <cstddef>
 #include <vector>
@@ -30,6 +31,10 @@ bool comprobar(bool condicion, const char* caso)
 
 int main()
 {
+    if (!prepararDatosPrueba())
+    {
+        return 1;
+    }
     bool correcto = true;
     Juego juego;
     juego.ventana.setVisible(false);

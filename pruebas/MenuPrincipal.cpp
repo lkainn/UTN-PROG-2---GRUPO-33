@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include "EntornoDatosPrueba.h"
 #include <array>
 #include <cstddef>
 #include <vector>
@@ -30,6 +31,10 @@ bool comprobar(bool condicion, const char* caso)
 
 int main()
 {
+    if (!prepararDatosPrueba())
+    {
+        return 1;
+    }
     bool correcto = true;
     Juego juego;
     juego.ventana.setVisible(false);
@@ -50,7 +55,7 @@ int main()
     sf::Texture captura(juego.ventana.getSize());
     captura.update(juego.ventana);
     correcto &= comprobar(captura.copyToImage().saveToFile(
-                          ".codex_tmp/menu_principal.png"), "captura del menu");
+                          obtenerCarpetaSalidasPrueba() + "/menu_principal.png"), "captura del menu");
 
     juego.procesarEntradaMenu(sf::Keyboard::Scancode::Up);
     correcto &= comprobar(juego._opcionMenu == 2, "navegacion circular hacia arriba");
@@ -67,7 +72,7 @@ int main()
     juego.dibujar();
     captura.update(juego.ventana);
     correcto &= comprobar(captura.copyToImage().saveToFile(
-                          ".codex_tmp/menu_controles.png"), "captura de controles");
+                          obtenerCarpetaSalidasPrueba() + "/menu_controles.png"), "captura de controles");
     juego.procesarEntradaMenu(sf::Keyboard::Scancode::Enter);
     juego.procesarEntradaMenu(sf::Keyboard::Scancode::Up);
     sf::sleep(sf::milliseconds(100));
@@ -116,7 +121,7 @@ int main()
                           "pausa conserva partida, proyectil y recargas");
     captura.update(juego.ventana);
     correcto &= comprobar(captura.copyToImage().saveToFile(
-                          ".codex_tmp/menu_pausa.png"), "captura de pausa");
+                          obtenerCarpetaSalidasPrueba() + "/menu_pausa.png"), "captura de pausa");
     juego.procesarEntradaMenu(sf::Keyboard::Scancode::Down);
     juego.procesarEntradaMenu(sf::Keyboard::Scancode::Escape);
     correcto &= comprobar(juego._estado == Juego::EstadoJuego::Jugando &&

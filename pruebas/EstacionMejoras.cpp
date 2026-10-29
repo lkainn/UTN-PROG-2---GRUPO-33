@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include "EntornoDatosPrueba.h"
 #include <array>
 #include <cstddef>
 #include <vector>
@@ -57,20 +58,24 @@ bool mismasOfertas(const std::array<OfertaArma, 3>& antes, const EstacionMejoras
     return true;
 }
 
-bool guardarVista(Juego& juego, const char* ruta)
+bool guardarVista(Juego& juego, const std::string& ruta)
 {
     // Ambos buffers muestran la misma escena al capturar despues del intercambio.
     juego.dibujar();
     juego.dibujar();
     sf::Texture captura(juego.ventana.getSize());
     captura.update(juego.ventana);
-    std::filesystem::create_directories(".codex_tmp");
+    std::filesystem::create_directories(obtenerCarpetaSalidasPrueba());
     return captura.copyToImage().saveToFile(ruta);
 }
 }
 
 int main()
 {
+    if (!prepararDatosPrueba())
+    {
+        return 1;
+    }
     bool correcto = true;
     Juego juego;
     juego.ventana.setVisible(false);
@@ -125,7 +130,7 @@ int main()
     // Ofertas fijas para verificar cada transaccion sin depender de la semilla.
     juego._estacionMejoras._ofertas = {{{1, RarezaMejora::Comun, false},
         {2, RarezaMejora::Legendaria, true}, {3, RarezaMejora::Epica, true}}};
-    correcto &= comprobar(guardarVista(juego, ".codex_tmp/estacion_ofertas.png"), "captura del menu de ofertas");
+    correcto &= comprobar(guardarVista(juego, obtenerCarpetaSalidasPrueba() + "/estacion_ofertas.png"), "captura del menu de ofertas");
     juego.elegirMejoraEstacion(1);
     juego.elegirMejoraEstacion(1);
     correcto &= comprobar(juego._inventarioArmas.obtenerIdSlot(1) == 2 &&
@@ -148,7 +153,7 @@ int main()
     correcto &= comprobar(juego._opcionReemplazo == 1 && !reemplazo->usado &&
         juego._inventarioArmas.obtenerIdSlot(0) == 1 && juego._estacionMejoras.obtenerCosto() == 16,
         "reemplazo espera segunda confirmacion sin consumir estacion");
-    correcto &= comprobar(guardarVista(juego, ".codex_tmp/estacion_reemplazo.png"), "captura advertencia irreversible");
+    correcto &= comprobar(guardarVista(juego, obtenerCarpetaSalidasPrueba() + "/estacion_reemplazo.png"), "captura advertencia irreversible");
     juego._opcionReemplazo = 3;
     correcto &= comprobar(mismasOfertas(ofertasReemplazo, juego._estacionMejoras) &&
         juego._inventarioArmas.obtenerIdSlot(0) == 1, "volver de confirmacion conserva ofertas y pistola");

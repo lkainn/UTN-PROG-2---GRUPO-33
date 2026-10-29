@@ -3,6 +3,7 @@
 #include "CarpetaDatos.h"
 
 #include <cstring>
+#include <cmath>
 
 const char* ArchivoEnemigos::RUTA = "datos/Enemigos.dat";
 
@@ -32,10 +33,12 @@ RegistroEnemigo armarRegistro(int id, const char* nombre, int vida, int dano,
 bool registroEsUsable(const RegistroEnemigo& registro) {
     return registro.idEnemigo >= 1 && registro.idEnemigo <= 4 &&
            registro.vida > 0 && registro.dano >= 0 &&
-           registro.velocidad > 0.0f &&
+           std::isfinite(registro.velocidad) && registro.velocidad > 0.0f &&
            registro.experienciaOtorgada >= 0 &&
            registro.chatarraOtorgada >= 0 &&
-           registro.ancho > 0.0f && registro.alto > 0.0f;
+           std::isfinite(registro.ancho) && std::isfinite(registro.alto) &&
+           registro.ancho > 0.0f && registro.alto > 0.0f &&
+           std::memchr(registro.nombre, '\0', sizeof(registro.nombre)) != nullptr;
 }
 
 }  // namespace
@@ -60,12 +63,19 @@ bool ArchivoEnemigos::guardarCatalogo(
     if (catalogo.empty()) {
         return false;
     }
+    for (const RegistroEnemigo& registro : catalogo)
+    {
+        if (!registroEsUsable(registro))
+        {
+            return false;
+        }
+    }
 
     // fopen no crea carpetas: sin esto, al ejecutar desde otro directorio el
     // guardado falla en silencio.
     asegurarCarpetaDatos();
 
-    FILE* archivo = fopen(RUTA, "wb");
+    FILE* archivo = fopen(obtenerRutaDatos(RUTA).c_str(), "wb");
     if (archivo == NULL) {
         return false;  // el disco esta protegido o la ruta es invalida
     }
@@ -73,13 +83,13 @@ bool ArchivoEnemigos::guardarCatalogo(
     const std::size_t escritos =
         fwrite(catalogo.data(), sizeof(RegistroEnemigo), catalogo.size(),
                archivo);
-    fclose(archivo);
+    const bool cerrado = fclose(archivo) == 0;
 
-    return escritos == catalogo.size();
+    return escritos == catalogo.size() && cerrado;
 }
 
 std::vector<RegistroEnemigo> ArchivoEnemigos::leerCatalogo() {
-    FILE* archivo = fopen(RUTA, "rb");
+    FILE* archivo = fopen(obtenerRutaDatos(RUTA).c_str(), "rb");
 
     // Primera ejecucion en esta maquina: se crea el archivo con los valores de
     // fabrica para que la partida pueda empezar igual.
