@@ -58,7 +58,7 @@ int main()
                           obtenerCarpetaSalidasPrueba() + "/menu_principal.png"), "captura del menu");
 
     juego.procesarEntradaMenu(sf::Keyboard::Scancode::Up);
-    correcto &= comprobar(juego._opcionMenu == 2, "navegacion circular hacia arriba");
+    correcto &= comprobar(juego._opcionMenu == 3, "navegacion circular hacia arriba");
     juego.procesarEntradaMenu(sf::Keyboard::Scancode::Down);
     juego.procesarEntradaMenu(sf::Keyboard::Scancode::Down);
     juego.procesarEntradaMenu(sf::Keyboard::Scancode::Enter);
@@ -74,6 +74,29 @@ int main()
     correcto &= comprobar(captura.copyToImage().saveToFile(
                           obtenerCarpetaSalidasPrueba() + "/menu_controles.png"), "captura de controles");
     juego.procesarEntradaMenu(sf::Keyboard::Scancode::Enter);
+    juego.procesarEntradaMenu(sf::Keyboard::Scancode::Down);
+    juego.procesarEntradaMenu(sf::Keyboard::Scancode::Enter);
+    correcto &= comprobar(juego._estado == Juego::EstadoJuego::Ranking && juego._ranking.empty(),
+                          "ranking abre sin historial");
+    const float tiempoRanking = juego._gestorOleadas.tiempoDePartida();
+    juego.actualizar();
+    correcto &= comprobar(juego._gestorOleadas.tiempoDePartida() == tiempoRanking &&
+                          juego.jugador.getPosicion().x == posicion.x &&
+                          juego.jugador.getPosicion().y == posicion.y,
+                          "ranking no avanza combate");
+    juego.dibujar();
+    juego.dibujar();
+    captura.update(juego.ventana);
+    correcto &= comprobar(captura.copyToImage().saveToFile(
+                          obtenerCarpetaSalidasPrueba() + "/menu_ranking.png"), "captura del ranking");
+    juego.procesarEntradaMenu(sf::Keyboard::Scancode::Escape);
+    correcto &= comprobar(juego._estado == Juego::EstadoJuego::Menu && juego._opcionMenu == 2,
+                          "Escape vuelve a la opcion ranking");
+    juego.procesarEntradaMenu(sf::Keyboard::Scancode::Enter);
+    juego.procesarEntradaMenu(sf::Keyboard::Scancode::Enter);
+    correcto &= comprobar(juego._estado == Juego::EstadoJuego::Menu && juego._opcionMenu == 2,
+                          "Enter vuelve del ranking sin iniciar partida");
+    juego.procesarEntradaMenu(sf::Keyboard::Scancode::Up);
     juego.procesarEntradaMenu(sf::Keyboard::Scancode::Up);
     sf::sleep(sf::milliseconds(100));
     juego.procesarEntradaMenu(sf::Keyboard::Scancode::Enter);
