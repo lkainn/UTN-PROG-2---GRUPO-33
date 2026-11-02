@@ -11,6 +11,7 @@
 #include "EncuentroAleatorio.h"
 #include "Jugador.h"
 #include "Partida.h"
+#include "ArchivoPartidas.h"
 
 #include <SFML/Graphics.hpp>
 
@@ -32,6 +33,7 @@ private:
     {
         Menu,
         Controles,
+        Ranking,
         Jugando,
         Pausa,
         Resultado
@@ -41,6 +43,9 @@ private:
     void manejarEscape();
     void procesarEntradaMenu(sf::Keyboard::Scancode tecla);
     void dibujarMenuPrincipal();
+    void cargarRanking();
+    void dibujarRanking();
+    std::vector<RegistroPartida> _ranking;
 
     enum class TipoArmaPrueba
     {

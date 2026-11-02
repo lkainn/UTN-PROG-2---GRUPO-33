@@ -430,6 +430,11 @@ void Juego::actualizarProyectiles(float segundos)
         _proyectiles.end());
 }
 void Juego::dibujar() {
+    if (_estado == EstadoJuego::Ranking)
+    {
+        dibujarRanking();
+        return;
+    }
     if (_estado == EstadoJuego::Resultado)
     {
         dibujarResultado();
@@ -1265,7 +1270,7 @@ void Juego::procesarEntradaMenu(sf::Keyboard::Scancode tecla)
         }
         return;
     }
-    if (_estado == EstadoJuego::Controles)
+    if (_estado == EstadoJuego::Controles || _estado == EstadoJuego::Ranking)
     {
         if (tecla == sf::Keyboard::Scancode::Escape ||
             tecla == sf::Keyboard::Scancode::Enter)
@@ -1274,7 +1279,7 @@ void Juego::procesarEntradaMenu(sf::Keyboard::Scancode tecla)
         }
         return;
     }
-    const int cantidadOpciones = _estado == EstadoJuego::Pausa ? 2 : 3;
+    const int cantidadOpciones = _estado == EstadoJuego::Pausa ? 2 : 4;
     if (tecla == sf::Keyboard::Scancode::Up)
     {
         _opcionMenu = (_opcionMenu + cantidadOpciones - 1) % cantidadOpciones;
@@ -1312,6 +1317,11 @@ void Juego::procesarEntradaMenu(sf::Keyboard::Scancode tecla)
         {
             _estado = EstadoJuego::Controles;
         }
+        else if (_opcionMenu == 2 && _estado == EstadoJuego::Menu)
+        {
+            cargarRanking();
+            _estado = EstadoJuego::Ranking;
+        }
         else
         {
             ventana.close();
@@ -1343,15 +1353,17 @@ void Juego::dibujarMenuPrincipal()
         ventana.draw(texto);
         if (_estado == EstadoJuego::Menu || esPausa)
         {
-            const std::array<const char*, 3> OPCIONES = esPausa ?
-                std::array<const char*, 3>{{"CONTINUAR", "SALIR", ""}} :
-                std::array<const char*, 3>{{"JUGAR", "CONTROLES", "SALIR"}};
-            const int cantidadOpciones = esPausa ? 2 : 3;
+            const std::array<const char*, 4> OPCIONES = esPausa ?
+                std::array<const char*, 4>{{"CONTINUAR", "SALIR", "", ""}} :
+                std::array<const char*, 4>{{"JUGAR", "CONTROLES", "RANKING", "SALIR"}};
+            const int cantidadOpciones = esPausa ? 2 : 4;
             for (int indice = 0; indice < cantidadOpciones; ++indice)
             {
-                const float alto = tamanio.y / 2.0f - 100.0f + indice * 110.0f;
+                const float altoBoton = esPausa ? 80.0f : 70.0f;
+                const float alto = tamanio.y / 2.0f + (esPausa ? -100.0f : -130.0f) +
+                    indice * (esPausa ? 110.0f : 95.0f);
                 const bool seleccionada = indice == _opcionMenu;
-                sf::RectangleShape boton({560.0f, 80.0f});
+                sf::RectangleShape boton({560.0f, altoBoton});
                 boton.setPosition({centroX - 280.0f, alto});
                 boton.setFillColor(seleccionada ? sf::Color(255, 190, 55) :
                                                  sf::Color(40, 50, 61));
@@ -1363,7 +1375,7 @@ void Juego::dibujarMenuPrincipal()
                 const sf::FloatRect area = texto.getLocalBounds();
                 texto.setOrigin({area.position.x + area.size.x / 2.0f,
                                  area.position.y + area.size.y / 2.0f});
-                texto.setPosition({centroX, alto + 40.0f});
+                texto.setPosition({centroX, alto + altoBoton / 2.0f});
                 ventana.draw(texto);
             }
         }
@@ -1402,6 +1414,98 @@ void Juego::dibujarMenuPrincipal()
             texto.setPosition({centroX, tamanio.y / 2.0f + 290.0f});
             ventana.draw(texto);
         }
+    }
+    ventana.display();
+}
+
+void Juego::cargarRanking()
+{
+    ArchivoPartidas archivo;
+    _ranking = archivo.leerTodas();
+
+    const std::size_t MAXIMO = 8;
+    const std::size_t cantidad = std::min(_ranking.size(), MAXIMO);
+
+    for (std::size_t i = 0; i < cantidad; ++i)
+    {
+        for (std::size_t j = i + 1; j < _ranking.size(); ++j)
+        {
+            if (_ranking[j].puntaje > _ranking[i].puntaje)
+            {
+                std::swap(_ranking[i], _ranking[j]);
+            }
+        }
+    }
+
+    if (_ranking.size() > MAXIMO)
+    {
+        _ranking.resize(MAXIMO);
+    }
+}
+
+void Juego::dibujarRanking()
+{
+    ventana.setView(ventana.getDefaultView());
+    ventana.clear(sf::Color(18, 23, 29));
+    const sf::Vector2f tamanio = ventana.getDefaultView().getSize();
+    const float centroX = tamanio.x / 2.0f;
+    const float centroY = tamanio.y / 2.0f;
+    sf::RectangleShape panel({1100.0f, 760.0f});
+    panel.setPosition({centroX - 550.0f, centroY - 380.0f});
+    panel.setFillColor(sf::Color(28, 35, 43));
+    panel.setOutlineThickness(2.0f);
+    panel.setOutlineColor(sf::Color(75, 92, 103));
+    ventana.draw(panel);
+    if (fuenteDanioDisponible)
+    {
+        sf::Text titulo(fuenteDanio, "RANKING", 48);
+        titulo.setFillColor(sf::Color(255, 190, 55));
+        const sf::FloatRect limites = titulo.getLocalBounds();
+        titulo.setOrigin({limites.position.x + limites.size.x / 2.0f, limites.position.y});
+        titulo.setPosition({centroX, centroY - 300.0f});
+        ventana.draw(titulo);
+
+        const std::array<const char*, 5> COLUMNAS{{"PUESTO", "PUNTOS", "NIVEL", "TIEMPO", "RESULTADO"}};
+        const std::array<float, 5> POSICIONES{{-450.0f, -310.0f, -100.0f, 70.0f, 270.0f}};
+        sf::Text texto(fuenteDanio, "", 24);
+        texto.setFillColor(sf::Color(150, 170, 183));
+        for (std::size_t columna = 0; columna < COLUMNAS.size(); ++columna)
+        {
+            texto.setString(COLUMNAS[columna]);
+            texto.setPosition({centroX + POSICIONES[columna], centroY - 200.0f});
+            ventana.draw(texto);
+        }
+        if (_ranking.empty())
+        {
+            texto.setString("Sin partidas para mostrar.");
+            texto.setPosition({centroX - 450.0f, centroY - 120.0f});
+            ventana.draw(texto);
+        }
+        const std::size_t cantidad = std::min(_ranking.size(), std::size_t{8});
+        for (std::size_t indice = 0; indice < cantidad; ++indice)
+        {
+            const RegistroPartida& partida = _ranking[indice];
+            const int minutos = partida.duracionSegundos / 60;
+            const int segundos = partida.duracionSegundos % 60;
+            const std::string tiempo = std::to_string(minutos) + ":" +
+                (segundos < 10 ? "0" : "") + std::to_string(segundos);
+            const std::array<std::string, 5> valores{{std::to_string(indice + 1),
+                std::to_string(partida.puntaje), std::to_string(partida.nivelAlcanzado),
+                tiempo, partida.victoria ? "Victoria" : "Derrota"}};
+            texto.setFillColor(indice == 0 ? sf::Color(255, 190, 55) : sf::Color(220, 230, 235));
+            for (std::size_t columna = 0; columna < valores.size(); ++columna)
+            {
+                texto.setString(valores[columna]);
+                texto.setPosition({centroX + POSICIONES[columna], centroY - 140.0f + indice * 45.0f});
+                ventana.draw(texto);
+            }
+        }
+        texto.setString("Enter o Escape: volver al menu");
+        texto.setFillColor(sf::Color(150, 170, 183));
+        const sf::FloatRect ayuda = texto.getLocalBounds();
+        texto.setOrigin({ayuda.position.x + ayuda.size.x / 2.0f, ayuda.position.y});
+        texto.setPosition({centroX, centroY + 290.0f});
+        ventana.draw(texto);
     }
     ventana.display();
 }
