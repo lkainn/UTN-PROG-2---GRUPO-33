@@ -1,4 +1,4 @@
-# Guía de estudio del TPI — Scrap Protocol
+# Guía de estudio del TPI — El Último Recolector
 
 Guía integral del proyecto: cómo está armado, por qué cada decisión, y una
 batería de ejercicios de modificación para la defensa.
@@ -6,6 +6,12 @@ batería de ejercicios de modificación para la defensa.
 Las guías por módulo (`guia_oleadas_enemigos.md`, `guia_estudio_arma.md`,
 `guia_adquisicion_rareza_armas.md`, etc.) entran en más detalle en cada tema.
 Esta las conecta y agrega la práctica de modificar.
+
+Lucas armó además un **resumen función por función** de los 21 archivos del
+proyecto (`resumen_local_proyecto/`, fuera del repositorio). Sirve para la
+consulta puntual —«¿qué hace exactamente esta función?»—; esta guía sirve para
+entender cómo se conecta todo y para practicar modificaciones. Conviene tener
+las dos a mano.
 
 ---
 
@@ -23,10 +29,10 @@ oleadas de máquinas hostiles hasta derrotar al jefe final.
 Tres módulos, uno por integrante:
 
 | Módulo | Responsable | Clases |
-|---|---|---|
-| Jugador y progresión | Nicolás | `Jugador`, `ArchivoJugadores`, `ArchivoMejoras` |
-| Enemigos y partida | Ramiro | `Enemigo`, `GestorOleadas`, `Partida`, `ArchivoEnemigos`, `ArchivoPartidas` |
-| Combate e integración | Lucas | `Arma`, `Proyectil`, `SistemaColisiones`, `InventarioArmas`, `EstacionMejoras`, `Escenario`, `EncuentroAleatorio`, `Juego`, los `Aspecto*` |
+|--------|-------------|--------|
+| Jugador y progresión | Nicolás| `Jugador`, `ArchivoJugadores`, `ArchivoMejoras` |
+| Enemigos y partida   | Ramiro | `Enemigo`, `GestorOleadas`, `Partida`, `ArchivoEnemigos`, `ArchivoPartidas` |
+| Combate e integración| Lucas  | `Arma`, `Proyectil`, `SistemaColisiones`, `InventarioArmas`, `EstacionMejoras`, `Escenario`, `EncuentroAleatorio`, `Juego`, los `Aspecto*` |
 
 ---
 
@@ -79,7 +85,8 @@ lo evita.
 ### El orden del frame (`Juego::actualizar`)
 
 ```
-1.  ¿el estado es "Jugando"? si no, salir (menú, pausa, resultado)
+1.  ¿el estado es "Jugando"? si no, salir (menú, controles, ranking,
+    pausa o resultado: son los seis estados de EstadoJuego)
 2.  ¿el menú de la estación está abierto? si sí, salir (pausa el combate)
 3.  ¿el jugador está vivo? si no, cerrar la partida
 4.  actualizarArmas          → avanza el enfriamiento de cada arma
