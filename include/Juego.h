@@ -11,6 +11,7 @@
 #include "EstacionMejoras.h"
 #include "EncuentroAleatorio.h"
 #include "Jugador.h"
+#include "Minimapa.h"
 #include "Partida.h"
 #include "ArchivoPartidas.h"
 
@@ -101,6 +102,7 @@ private:
     AspectoArmas _aspectoArmas;
     AspectoJugador _aspectoJugador;
     AspectoEncuentros _aspectoEncuentros;
+    Minimapa _minimapa;
     AspectoEnemigos _aspectoEnemigos;
     std::array<float, 2> _angulosArmas{};
     std::array<bool, 2> _armasReflejadas{};
@@ -138,6 +140,7 @@ private:
     void dibujarIndicadoresDanio();
     void dibujarIndicadoresRecurso();
     void dibujarInterfaz();
+    void dibujarMinimapa();
     void actualizarDisparoAutomatico();
     bool buscarObjetivo(float alcance, Posicion& objetivo, float& distanciaCuadrada) const;
     void actualizarApuntadoArma(std::size_t slot, Posicion objetivo);
