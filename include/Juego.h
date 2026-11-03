@@ -5,6 +5,7 @@
 #include "AspectoArmas.h"
 #include "AspectoJugador.h"
 #include "AspectoEncuentros.h"
+#include "AspectoEnemigos.h"
 #include "GestorOleadas.h"
 #include "Escenario.h"
 #include "EstacionMejoras.h"
@@ -100,6 +101,7 @@ private:
     AspectoArmas _aspectoArmas;
     AspectoJugador _aspectoJugador;
     AspectoEncuentros _aspectoEncuentros;
+    AspectoEnemigos _aspectoEnemigos;
     std::array<float, 2> _angulosArmas{};
     std::array<bool, 2> _armasReflejadas{};
     std::vector<Proyectil> _proyectiles;
