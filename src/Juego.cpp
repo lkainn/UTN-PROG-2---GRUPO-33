@@ -219,6 +219,8 @@ void Juego::actualizar() {
     actualizarDanoContacto(segundos);
     actualizarIndicadoresDanio(segundos);
     actualizarProyectiles(segundos);
+    _aspectoEnemigos.actualizar(_gestorOleadas.obtenerEnemigos(),
+                               jugador.getFormaColision(), segundos);
     actualizarRecursos(segundos);
     actualizarPartida(segundos);
     if (_partida.estaEnCurso())
@@ -450,13 +452,41 @@ void Juego::dibujar() {
     _escenario.dibujar(ventana);
     dibujarEncuentros();
     dibujarRecursos();
+    std::vector<const Enemigo*> enemigosOrdenados;
     for (const Enemigo& enemigo : _gestorOleadas.obtenerEnemigos())
     {
-        if (enemigo.estaVivo()) {
+        if (enemigo.estaVivo())
+        {
+            enemigosOrdenados.push_back(&enemigo);
+        }
+    }
+    std::stable_sort(enemigosOrdenados.begin(), enemigosOrdenados.end(),
+        [](const Enemigo* primero, const Enemigo* segundo)
+        {
+            const FormaColision a = primero->obtenerFormaColision();
+            const FormaColision b = segundo->obtenerFormaColision();
+            return a.y + a.alto / 2.0f < b.y + b.alto / 2.0f;
+        });
+    const auto dibujarEnemigo = [this](const Enemigo& enemigo)
+    {
+        if (!_aspectoEnemigos.dibujar(ventana, enemigo))
+        {
             sf::RectangleShape figura;
             configurarFiguraEnemigo(figura, enemigo, enemigo.obtenerIdEnemigo());
             ventana.draw(figura);
         }
+    };
+    std::size_t siguienteEnemigo = 0;
+    while (siguienteEnemigo < enemigosOrdenados.size())
+    {
+        const Enemigo& enemigo = *enemigosOrdenados[siguienteEnemigo];
+        const FormaColision forma = enemigo.obtenerFormaColision();
+        if (forma.y + forma.alto / 2.0f > jugador.getPosicion().y)
+        {
+            break;
+        }
+        dibujarEnemigo(enemigo);
+        ++siguienteEnemigo;
     }
     const bool herido = tiempoRestanteDanoContacto >
         SEGUNDOS_ENTRE_DANOS_CONTACTO - 0.12f;
@@ -479,6 +509,11 @@ void Juego::dibujar() {
             }
             _aspectoJugador.dibujarAgarre(ventana, jugador.getPosicion(), slot, jugador.estaVivo(), herido);
         }
+    }
+    while (siguienteEnemigo < enemigosOrdenados.size())
+    {
+        dibujarEnemigo(*enemigosOrdenados[siguienteEnemigo]);
+        ++siguienteEnemigo;
     }
     for (const Proyectil& proyectil : _proyectiles)
     {
@@ -1031,6 +1066,7 @@ void Juego::reiniciarPrueba() {
     cancelarCompraEstacion();
     jugador.reiniciar();
     _aspectoJugador.reiniciar(jugador.getPosicion());
+    _aspectoEnemigos.reiniciar();
     _estacionSeleccionada = nullptr;
     _opcionReemplazo = 3;
     _encuentros.generarAlrededor(jugador.getPosicion());

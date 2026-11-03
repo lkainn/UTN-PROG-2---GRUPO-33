@@ -62,6 +62,38 @@ La apariencia conserva una altura de
 `recursos/personajes/diseno.md`. La prueba visual se ejecuta con
 `pruebas/probar_aspecto_jugador.bat`.
 
+El enemigo basico usa a Mordaza: un robot bajo con pinza frontal y sensor rojo.
+Tiene ocho vistas, marcha por distancia recorrida, reposo y cierre de pinza
+al entrar en contacto. `AspectoEnemigos` comparte los atlas, limpia los estados
+al morir y respeta pausa y reinicio. El orden de dibujo situa a cada enemigo
+delante o detras de Remache segun su posicion. La colision y las estadisticas
+se conservan. Los recursos estan en `recursos/enemigos/mordaza_atlas`;
+prueba con `pruebas/probar_aspecto_enemigos.bat`.
+
+La variante rapida usa a Zancudo, con chasis amarillo ocre, patas largas y
+ocho vistas de carrera. Su animacion comparte la misma capa visual y respeta
+pausa y reinicio; cada variante conserva su propio paquete de texturas y
+respaldo. No cambia la velocidad ni la colision del enemigo. Recursos en
+`recursos/enemigos/zancudo_atlas`; prueba con
+`pruebas/probar_aspecto_zancudo.bat`.
+
+La variante resistente usa a Yunque, un cuadrupedo de blindaje violeta
+grisaceo. Tiene ocho vistas, marcha escalonada con tres apoyos como minimo,
+reposo y absorcion visual del contacto. Comparte la capa de apariencias con
+Mordaza y Zancudo, con carga independiente de sus recursos. Conserva las
+estadisticas del resistente. Recursos en `recursos/enemigos/yunque_atlas`;
+prueba con `pruebas/probar_aspecto_yunque.bat`.
+
+El jefe chatarrero usa al Desguazador, con gantry naranja, visor rojo dividido,
+pinza izquierda y prensa derecha. Tiene ocho vistas de cuerpo completo,
+marcha, reposo y reaccion visual de contacto. Usa celdas de 256 x 256 y una
+escala mayor, conservando las estadisticas, la aparicion unica y la victoria
+existentes. Recursos en `recursos/enemigos/desguazador_atlas`; prueba con
+`pruebas/probar_aspecto_desguazador.bat`.
+
+Cada paquete contiene ocho atlas y un descriptor de animacion.
+Los conceptos estaticos se conservan como referencia.
+
 `GestorOleadas` administra la aparición de enemigos alrededor del jugador,
 con dificultad creciente durante los primeros cinco minutos. La interfaz
 muestra el número de oleada y los segundos de partida. Los rápidos se habilitan
@@ -240,6 +272,3 @@ R sigue siendo un reinicio de prueba que conserva las compras y el progreso.
 El resultado se guarda una sola vez en Partidas.dat y actualiza el record
 de puntaje del perfil. La prueba se ejecuta con
 pruebas/probar_partida_integrada.bat.
-
-Ver la [guía de integración de partida y disparo de dos armas](documentos/guia_partida_integrada_y_disparo_doble.md)
-para el ciclo de juego, reinicio completo, origen de las balas y ejemplos de código.
