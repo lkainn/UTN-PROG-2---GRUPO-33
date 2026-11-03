@@ -10,3 +10,7 @@ dependencias/*.zip
 datos/Jugadores.dat
 datos/Mejoras.dat
 datos/Partidas.dat
+
+# Material de estudio propio: vive fuera del repositorio.
+documentos/guia_estudio_tpi_completa.md
+documentos/guia_teoria_cursada_en_el_tpi.md
