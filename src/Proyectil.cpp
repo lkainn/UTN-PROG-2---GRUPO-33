@@ -121,3 +121,20 @@ int Proyectil::obtenerDano() const {
 bool Proyectil::estaActivo() const {
     return _activo;
 }
+
+void Proyectil::agregarImpactosExtra(int cantidad) {
+    _impactosRestantes += cantidad;
+}
+
+void Proyectil::rebotarHacia(Posicion nuevoObjetivo, float factorDanio) {
+    const float dx = nuevoObjetivo.x - _posicion.x;
+    const float dy = nuevoObjetivo.y - _posicion.y;
+    const float dist = std::hypot(dx, dy);
+
+    if (dist > 0.0f) {
+        const float vel = obtenerVelocidad();
+        _velocidadX = (dx / dist) * vel;
+        _velocidadY = (dy / dist) * vel;
+        _dano = static_cast<int>(_dano * factorDanio); // Reduce el daño un 30% tras el rebote del proyectil
+    }
+}

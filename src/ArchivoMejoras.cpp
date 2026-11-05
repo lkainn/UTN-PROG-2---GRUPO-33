@@ -8,7 +8,8 @@ namespace
 std::vector<Mejora> catalogoInicial()
 {
     return {{1, "Vida Maxima", 0, 5, "Aumenta tu salud limite"},
-            {2, "Velocidad", 0, 3, "Corres mas rapido"}};
+            {2, "Velocidad", 0, 3, "Corres mas rapido"},
+            {3, "Rebote", 0, 3, "Tus balas rebotan a otro enemigo"}};
 }
 
 bool mejoraValida(const Mejora& mejora)

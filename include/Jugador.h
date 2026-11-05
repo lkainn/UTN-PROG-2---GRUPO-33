@@ -23,6 +23,8 @@ private:
     int _experienciaSiguienteNivel;
     int _chatarra;
     bool _vivo;
+    bool _requiereElegirMejora = false;
+    int _rebotes = 0;
 
     sf::RectangleShape _formaGrafica;  // Representacion visual para pruebas
 
@@ -45,6 +47,8 @@ public:
     void reiniciar();
     void dibujar(sf::RenderWindow& ventana);
     bool restablecerProgreso();
+    bool requiereElegirMejora() const { return _requiereElegirMejora; }
+    void aplicarMejoraElegida(int idMejora);
 
     Posicion getPosicion() const;
     FormaColision getFormaColision() const;
@@ -56,6 +60,8 @@ public:
     int getChatarra() const;
     float getVelocidad() const;
     bool estaVivo() const;
+
+    int getRebotes() const { return _rebotes; }
 
     // Metodos auxiliares para la interfaz grafica
     float getPorcentajeVida() const;

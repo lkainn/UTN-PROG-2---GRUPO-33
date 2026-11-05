@@ -13,6 +13,9 @@ public:
               float ancho, float alto, int dano, int idArma = 0,
               int maximoImpactos = 1);
 
+    void agregarImpactosExtra(int cantidad);
+    void rebotarHacia(Posicion nuevoObjetivo, float factorDanio = 0.70f);
+
     void actualizar(float segundos);
     void desactivar();
     void limitarAlcance(float alcance);

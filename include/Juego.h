@@ -37,8 +37,12 @@ private:
         Ranking,
         Jugando,
         Pausa,
-        Resultado
+        Resultado,
+        SubiendoNivel
     };
+
+    void dibujarMenuSubidaNivel();
+
     EstadoJuego _estado = EstadoJuego::Menu;
     int _opcionMenu = 0;
     void manejarEscape();
@@ -123,7 +127,6 @@ private:
     void actualizarEnemigos(float segundos);
     void actualizarPartida(float segundos);
     void iniciarNuevaPartida();
-    bool comprarMejoraPermanente();
     bool reiniciarProgreso();
     void dibujarResultado();
     Posicion obtenerAnclajeArma(std::size_t slot) const;
@@ -161,4 +164,5 @@ private:
     bool hayRecompensaCofre() const;
     void aplicarBonificacionesArmas();
     void dibujarCofre(const ObjetoEncuentro& objeto);
+    bool _mostrarTerceraCarta = false;
 };

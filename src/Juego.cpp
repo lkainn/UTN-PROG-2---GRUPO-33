@@ -3,7 +3,6 @@
 #include "Configuracion.h"
 #include "SistemaColisiones.h"
 #include "ArchivoJugadores.h"
-#include "ArchivoMejoras.h"
 #include "ArchivoPartidas.h"
 
 #include <algorithm>
@@ -181,18 +180,24 @@ void Juego::procesarEventos() {
                 jugador.recibirDano(20);
             } else if (tecla->scancode == sf::Keyboard::Scancode::E) {
                 jugador.ganarExperiencia(40);
-            } else if (tecla->scancode == sf::Keyboard::Scancode::U) {
-                ventana.setTitle(comprarMejoraPermanente() ?
-                    "MEJORA PERMANENTE: Vida maxima aumentada" : "MEJORA NO DISPONIBLE");
-            } else if (tecla->scancode == sf::Keyboard::Scancode::N) {
-                ventana.setTitle(reiniciarProgreso() ?
-                    "PROGRESO REINICIADO: Nueva partida" : "NO SE PUDO REINICIAR EL PROGRESO");
             }
+              else if (tecla->scancode == sf::Keyboard::Scancode::M) {
+                jugador.aplicarMejoraElegida(3);
+                ventana.setTitle("PRUEBA: Rebote de Proyectiles (Carta 3) Activado");
+        }
         }
     }
 }
 
 void Juego::actualizar() {
+    if (jugador.requiereElegirMejora() && _estado == EstadoJuego::Jugando) {
+    _estado = EstadoJuego::SubiendoNivel;
+
+    // 25% de probabilidad de que aparezca la carta 3
+    std::uniform_int_distribution<int> sorteo(1, 100);
+    _mostrarTerceraCarta = (sorteo(_generador) <= 25);
+    }
+
     if (_estado != EstadoJuego::Jugando)
     {
         relojFotogramas.restart();
@@ -374,64 +379,90 @@ void Juego::actualizarRecursos(float segundos) {
 }
 
 void Juego::actualizarProyectiles(float segundos)
-{
-    if (!std::isfinite(segundos) || segundos <= 0.0f)
-    {
+ {
+    if (!std::isfinite(segundos) || segundos <= 0.0f) {
         return;
     }
+
     const FormaColision escenario = _escenario.obtenerAreaVisible();
     auto& enemigos = _gestorOleadas.obtenerEnemigos();
-    for (Proyectil& proyectil : _proyectiles)
-    {
+
+    for (Proyectil& proyectil : _proyectiles) {
         float tiempoRestante = segundos;
-        while (proyectil.estaActivo() && tiempoRestante > 0.0f)
-        {
+        while (proyectil.estaActivo() && tiempoRestante > 0.0f) {
             float paso = tiempoRestante;
-            if (proyectil.obtenerIdArma() == 4 && proyectil.obtenerVelocidad() > 0.0f)
-            {
+            if (proyectil.obtenerIdArma() == 4 && proyectil.obtenerVelocidad() > 0.0f) {
                 paso = std::min(paso, PASO_ENERGIA / proyectil.obtenerVelocidad());
             }
+
             proyectil.actualizar(paso);
             tiempoRestante -= paso;
-            if (!proyectil.estaActivo())
-            {
+
+            if (!proyectil.estaActivo()) {
                 break;
             }
-            for (std::size_t indice = 0; indice < enemigos.size(); ++indice)
-            {
+
+            for (std::size_t indice = 0; indice < enemigos.size(); ++indice) {
                 Enemigo& enemigo = enemigos[indice];
                 if (enemigo.estaVivo() &&
-                    SistemaColisiones::hayInterseccion(
-                        proyectil.obtenerFormaColision(), enemigo.obtenerFormaColision()) &&
-                    proyectil.registrarImpacto(enemigo.obtenerIdInstancia()))
-                {
+                    SistemaColisiones::hayInterseccion(proyectil.obtenerFormaColision(), enemigo.obtenerFormaColision()) &&
+                    proyectil.registrarImpacto(enemigo.obtenerIdInstancia())) {
+
                     enemigo.recibirDanio(proyectil.obtenerDano());
-                    if (!enemigo.estaVivo())
-                    {
+                    if (!enemigo.estaVivo()) {
                         generarRecompensa(enemigo);
                     }
-                    if (!proyectil.estaActivo())
-                    {
+
+                    // REBOTE HACIA ENEMIGO CERCANO
+                    if (proyectil.estaActivo() && jugador.getRebotes() > 0) {
+                        Posicion objetivoRebote{};
+                        float distMinima = std::numeric_limits<float>::max();
+                        bool objetivoEncontrado = false;
+
+                        for (const Enemigo& otro : enemigos) {
+                            if (otro.estaVivo() && otro.obtenerIdInstancia() != enemigo.obtenerIdInstancia()) {
+                                const FormaColision f = otro.obtenerFormaColision();
+                                const Posicion posOtro{f.x + f.ancho / 2.0f, f.y + f.alto / 2.0f};
+                                const float dx = posOtro.x - proyectil.obtenerFormaColision().x;
+                                const float dy = posOtro.y - proyectil.obtenerFormaColision().y;
+                                const float distCuadrada = dx * dx + dy * dy;
+
+                                // Busca en un radio maximo de 450 pixeles
+                                if (distCuadrada < distMinima && distCuadrada <= 450.0f * 450.0f) {
+                                    distMinima = distCuadrada;
+                                    objetivoRebote = posOtro;
+                                    objetivoEncontrado = true;
+                                }
+                            }
+                        }
+
+                        if (objetivoEncontrado) {
+                            proyectil.rebotarHacia(objetivoRebote, 0.70f); // Rebota reduciendo 30% de daño
+                        }
+                    }
+
+                    if (!proyectil.estaActivo()) {
                         break;
                     }
                 }
             }
-            if (proyectil.estaActivo() &&
-                !SistemaColisiones::estaDentroDe(proyectil.obtenerFormaColision(), escenario))
-            {
+
+            if (proyectil.estaActivo() && !SistemaColisiones::estaDentroDe(proyectil.obtenerFormaColision(), escenario)) {
                 proyectil.desactivar();
             }
         }
     }
+
     _proyectiles.erase(
         std::remove_if(_proyectiles.begin(), _proyectiles.end(),
-            [](const Proyectil& proyectil)
-            {
+            [](const Proyectil& proyectil) {
                 return !proyectil.estaActivo();
             }),
         _proyectiles.end());
 }
-void Juego::dibujar() {
+
+void Juego::dibujar()
+{
     if (_estado == EstadoJuego::Ranking)
     {
         dibujarRanking();
@@ -442,11 +473,12 @@ void Juego::dibujar() {
         dibujarResultado();
         return;
     }
-    if (_estado != EstadoJuego::Jugando)
-    {
-        dibujarMenuPrincipal();
-        return;
-    }
+
+    if (_estado != EstadoJuego::Jugando && _estado != EstadoJuego::SubiendoNivel) {
+    dibujarMenuPrincipal();
+    return;
+}
+
     ventana.setView(_escenario.obtenerVista());
     ventana.clear(sf::Color(28, 31, 36));
     _escenario.dibujar(ventana);
@@ -524,6 +556,9 @@ void Juego::dibujar() {
     ventana.setView(ventana.getDefaultView());
     dibujarInterfaz();
     dibujarMenuEstacion();
+    if (_estado == EstadoJuego::SubiendoNivel) {
+        dibujarMenuSubidaNivel();
+    }
     ventana.display();
 }
 
@@ -1012,7 +1047,15 @@ void Juego::dispararArma(std::size_t slot)
     const float distanciaDisparo = std::min(arma.obtenerAlcance() * 0.9999f, std::max(1.0f, std::sqrt(distanciaMinima)));
     const Posicion destino{punta.x + std::cos(_angulosArmas[slot]) * distanciaDisparo,
                            punta.y + std::sin(_angulosArmas[slot]) * distanciaDisparo};
+
+    const std::size_t proyectilesAntes = _proyectiles.size();
     arma.intentarDispararRafaga(_proyectiles, punta, destino, velocidad, ancho, alto);
+
+    if (jugador.getRebotes() > 0) {
+        for (std::size_t i = proyectilesAntes; i < _proyectiles.size(); ++i) {
+            _proyectiles[i].agregarImpactosExtra(jugador.getRebotes());
+        }
+    }
 }
 
 void Juego::actualizarArmas(float segundos)
@@ -1293,6 +1336,21 @@ void Juego::manejarEscape()
 
 void Juego::procesarEntradaMenu(sf::Keyboard::Scancode tecla)
 {
+    if (_estado == EstadoJuego::SubiendoNivel) {
+        if (tecla == sf::Keyboard::Scancode::Num1 || tecla == sf::Keyboard::Scancode::Numpad1) {
+            jugador.aplicarMejoraElegida(1);
+            _estado = EstadoJuego::Jugando;
+        } else if (tecla == sf::Keyboard::Scancode::Num2 || tecla == sf::Keyboard::Scancode::Numpad2) {
+            jugador.aplicarMejoraElegida(2);
+            _estado = EstadoJuego::Jugando;
+        }
+          else if (_mostrarTerceraCarta && (tecla == sf::Keyboard::Scancode::Num3 || tecla == sf::Keyboard::Scancode::Numpad3)) {
+            jugador.aplicarMejoraElegida(3);
+            _estado = EstadoJuego::Jugando;
+        }
+        return;
+        }
+
     if (_estado == EstadoJuego::Resultado)
     {
         if (tecla == sf::Keyboard::Scancode::Enter)
@@ -1315,54 +1373,28 @@ void Juego::procesarEntradaMenu(sf::Keyboard::Scancode tecla)
         }
         return;
     }
-    const int cantidadOpciones = _estado == EstadoJuego::Pausa ? 2 : 4;
-    if (tecla == sf::Keyboard::Scancode::Up)
-    {
-        _opcionMenu = (_opcionMenu + cantidadOpciones - 1) % cantidadOpciones;
+
+    const int cantidadOpciones = _estado == EstadoJuego::Pausa ? 2 : 5;
+
+    if (tecla == sf::Keyboard::Scancode::Up) {
+    _opcionMenu = (_opcionMenu + cantidadOpciones - 1) % cantidadOpciones;
+}       else if (tecla == sf::Keyboard::Scancode::Down) {
+    _opcionMenu = (_opcionMenu + 1) % cantidadOpciones;
+}       else if (tecla == sf::Keyboard::Scancode::Escape) {
+            if (_estado == EstadoJuego::Pausa) { manejarEscape(); }
+            else { ventana.close(); }
+}       else if (tecla == sf::Keyboard::Scancode::Enter) {
+            if (_estado == EstadoJuego::Menu) {
+                if (_opcionMenu == 0) { iniciarNuevaPartida(); }
+                else if (_opcionMenu == 1) { reiniciarProgreso(); }
+                else if (_opcionMenu == 2) { _estado = EstadoJuego::Controles; }
+                else if (_opcionMenu == 3) { cargarRanking(); _estado = EstadoJuego::Ranking; }
+                else if (_opcionMenu == 4) { ventana.close(); }
+    }       else if (_estado == EstadoJuego::Pausa) {
+                if (_opcionMenu == 0) { _estado = EstadoJuego::Jugando; relojFotogramas.restart(); }
+                else { ventana.close(); }
     }
-    else if (tecla == sf::Keyboard::Scancode::Down)
-    {
-        _opcionMenu = (_opcionMenu + 1) % cantidadOpciones;
-    }
-    else if (tecla == sf::Keyboard::Scancode::Escape)
-    {
-        if (_estado == EstadoJuego::Pausa)
-        {
-            manejarEscape();
-        }
-        else
-        {
-            ventana.close();
-        }
-    }
-    else if (tecla == sf::Keyboard::Scancode::Enter)
-    {
-        if (_opcionMenu == 0)
-        {
-            if (_estado == EstadoJuego::Menu)
-            {
-                iniciarNuevaPartida();
-            }
-            else
-            {
-                _estado = EstadoJuego::Jugando;
-                relojFotogramas.restart();
-            }
-        }
-        else if (_opcionMenu == 1 && _estado == EstadoJuego::Menu)
-        {
-            _estado = EstadoJuego::Controles;
-        }
-        else if (_opcionMenu == 2 && _estado == EstadoJuego::Menu)
-        {
-            cargarRanking();
-            _estado = EstadoJuego::Ranking;
-        }
-        else
-        {
-            ventana.close();
-        }
-    }
+}
 }
 
 void Juego::dibujarMenuPrincipal()
@@ -1387,23 +1419,23 @@ void Juego::dibujarMenuPrincipal()
                          limites.position.y});
         texto.setPosition({centroX, tamanio.y / 2.0f - 300.0f});
         ventana.draw(texto);
-        if (_estado == EstadoJuego::Menu || esPausa)
-        {
-            const std::array<const char*, 4> OPCIONES = esPausa ?
-                std::array<const char*, 4>{{"CONTINUAR", "SALIR", "", ""}} :
-                std::array<const char*, 4>{{"JUGAR", "CONTROLES", "RANKING", "SALIR"}};
-            const int cantidadOpciones = esPausa ? 2 : 4;
-            for (int indice = 0; indice < cantidadOpciones; ++indice)
-            {
-                const float altoBoton = esPausa ? 80.0f : 70.0f;
-                const float alto = tamanio.y / 2.0f + (esPausa ? -100.0f : -130.0f) +
-                    indice * (esPausa ? 110.0f : 95.0f);
-                const bool seleccionada = indice == _opcionMenu;
-                sf::RectangleShape boton({560.0f, altoBoton});
-                boton.setPosition({centroX - 280.0f, alto});
-                boton.setFillColor(seleccionada ? sf::Color(255, 190, 55) :
-                                                 sf::Color(40, 50, 61));
-                ventana.draw(boton);
+    if (_estado == EstadoJuego::Menu || esPausa) {
+        const std::array<const char*, 5> OPCIONES = esPausa
+            ? std::array<const char*, 5>{{"CONTINUAR", "SALIR", "", "", ""}}
+            : std::array<const char*, 5>{{"CONTINUAR", "NUEVA PARTIDA", "CONTROLES", "RANKING", "SALIR"}};
+
+        const int cantidadOpciones = esPausa ? 2 : 5;
+
+        for (int indice = 0; indice < cantidadOpciones; ++indice) {
+            const float altoBoton = esPausa ? 80.0f : 60.0f;
+            const float alto = tamanio.y / 2.0f + (esPausa ? -100.0f : -170.0f) + indice * (esPausa ? 110.0f : 80.0f);
+
+            const bool seleccionada = indice == _opcionMenu;
+            sf::RectangleShape boton({560.0f, altoBoton});
+            boton.setPosition({centroX - 280.0f, alto});
+            boton.setFillColor(seleccionada ? sf::Color(255, 190, 55) : sf::Color(40, 50, 61));
+            ventana.draw(boton);
+
                 texto.setString(OPCIONES[indice]);
                 texto.setCharacterSize(32);
                 texto.setFillColor(seleccionada ? sf::Color(18, 23, 29) :
@@ -1452,6 +1484,64 @@ void Juego::dibujarMenuPrincipal()
         }
     }
     ventana.display();
+}
+
+void Juego::dibujarMenuSubidaNivel() {
+sf::RectangleShape velo({1920.0f, 1080.0f});
+    velo.setFillColor(sf::Color(0, 0, 0, 210));
+    ventana.draw(velo);
+
+    sf::Text titulo(fuenteDanio, "NUEVO NIVEL - ELEGI UNA MEJORA", 34);
+    titulo.setPosition({580.0f, 180.0f});
+    ventana.draw(titulo);
+
+    // Si hay 3 cartas: X = {340, 770, 1200}. Si hay 2: X = {400, 1000}
+    const float posX1 = _mostrarTerceraCarta ? 340.0f : 400.0f;
+    const float posX2 = _mostrarTerceraCarta ? 770.0f : 1000.0f;
+
+    // Carta 1: Vida Maxima
+    sf::RectangleShape carta1({380.0f, 220.0f});
+    carta1.setPosition({posX1, 380.0f});
+    carta1.setFillColor(sf::Color(35, 52, 57));
+    carta1.setOutlineThickness(2.0f);
+    carta1.setOutlineColor(sf::Color(100, 120, 140));
+    ventana.draw(carta1);
+
+    sf::Text texto1(fuenteDanio, "1. VIDA MAXIMA\n   (+20 HP)", 24);
+    texto1.setPosition({posX1 + 40.0f, 450.0f});
+    ventana.draw(texto1);
+
+    // Carta 2: Velocidad
+    sf::RectangleShape carta2({380.0f, 220.0f});
+    carta2.setPosition({posX2, 380.0f});
+    carta2.setFillColor(sf::Color(35, 52, 57));
+    carta2.setOutlineThickness(2.0f);
+    carta2.setOutlineColor(sf::Color(100, 120, 140));
+    ventana.draw(carta2);
+
+    sf::Text texto2(fuenteDanio, "2. VELOCIDAD\n   (+10%)", 24);
+    texto2.setPosition({posX2 + 40.0f, 450.0f});
+    ventana.draw(texto2);
+
+    // Carta 3: REBOTE (Solo si la probabilidad activo la tercer carta)
+    if (_mostrarTerceraCarta) {
+        const float posX3 = 1200.0f;
+        sf::RectangleShape carta3({380.0f, 220.0f});
+        carta3.setPosition({posX3, 380.0f});
+        carta3.setFillColor(sf::Color(45, 40, 25));
+        carta3.setOutlineThickness(3.0f);
+        carta3.setOutlineColor(sf::Color(255, 190, 55));
+        ventana.draw(carta3);
+
+        sf::Text etiquetaRara(fuenteDanio, " ¡RARA!", 20);
+        etiquetaRara.setFillColor(sf::Color(255, 190, 55));
+        etiquetaRara.setPosition({posX3 + 150.0f, 400.0f});
+        ventana.draw(etiquetaRara);
+
+        sf::Text texto3(fuenteDanio, "3. REBOTE DE PROYECTILES\n   (Rebota a Enemigo)", 22);
+        texto3.setPosition({posX3 + 30.0f, 450.0f});
+        ventana.draw(texto3);
+    }
 }
 
 void Juego::cargarRanking()
@@ -1560,37 +1650,6 @@ void Juego::iniciarNuevaPartida()
     reiniciarPrueba();
     _estado = EstadoJuego::Jugando;
     _opcionMenu = 0;
-}
-
-bool Juego::comprarMejoraPermanente()
-{
-    constexpr int COSTO = 10;
-    if (!jugador.estaVivo() || jugador.getChatarra() < COSTO)
-    {
-        return false;
-    }
-    ArchivoMejoras archivo;
-    std::vector<Mejora> catalogo = archivo.leerCatalogo();
-    for (Mejora& mejora : catalogo)
-    {
-        if (mejora.idMejora != 1 || mejora.nivelActual >= mejora.nivelMaximo)
-        {
-            continue;
-        }
-        if (!jugador.gastarChatarra(COSTO))
-        {
-            return false;
-        }
-        ++mejora.nivelActual;
-        if (!archivo.guardarCatalogo(catalogo))
-        {
-            jugador.ganarChatarra(COSTO);
-            return false;
-        }
-        jugador.aumentarVidaMaxima(20);
-        return true;
-    }
-    return false;
 }
 
 bool Juego::reiniciarProgreso()

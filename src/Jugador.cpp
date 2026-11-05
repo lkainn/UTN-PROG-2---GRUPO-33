@@ -17,15 +17,14 @@ Jugador::Jugador() {
     _vidaMaxima = 100 + (_nivel - 1) * 20;
     _experienciaSiguienteNivel = 100 + (_nivel - 1) * 50;
     ArchivoMejoras archivoMejoras;
-    for (const Mejora& mejora : archivoMejoras.leerCatalogo())
-    {
-        if (mejora.idMejora == 1)
-        {
-            _vidaMaxima += mejora.nivelActual * 20;
-        }
-        else if (mejora.idMejora == 2)
-        {
-            _velocidad += mejora.nivelActual;
+
+    for (const Mejora& mejora : archivoMejoras.leerCatalogo()) {
+        if (mejora.idMejora == 1) {
+        _vidaMaxima += mejora.nivelActual * 20;
+    }       else if (mejora.idMejora == 2) {
+        _velocidad += mejora.nivelActual * 0.5f;
+    }       else if (mejora.idMejora == 3) {
+        _rebotes += mejora.nivelActual;
         }
     }
     _vida = _vidaMaxima;
@@ -126,13 +125,36 @@ void Jugador::curar(int cantidad) {
 // Algoritmo para procesar la subida de niveles
 void Jugador::verificarSubidaNivel() {
     while (_experiencia >= _experienciaSiguienteNivel) {
-    _experiencia -= _experienciaSiguienteNivel;
-    _nivel++;
-    _experienciaSiguienteNivel += 50;
-    _vidaMaxima += 20;
-    _vida = _vidaMaxima; // Aumenta vida completa al subir de nivel
-    guardarProgreso();
+        _experiencia -= _experienciaSiguienteNivel;
+        _nivel++;
+        _experienciaSiguienteNivel += 50;
+        _requiereElegirMejora = true;
+        guardarProgreso();
     }
+}
+
+void Jugador::aplicarMejoraElegida(int idMejora) {
+    ArchivoMejoras archivo;
+    std::vector<Mejora> catalogo = archivo.leerCatalogo();
+
+    for (Mejora& m : catalogo) {
+        if (m.idMejora == idMejora && m.nivelActual < m.nivelMaximo) {
+            m.nivelActual++;
+            break;
+        }
+    }
+
+    if (idMejora == 1) {
+        _vidaMaxima += 20;
+    } else if (idMejora == 2) {
+        _velocidad += 0.5f;
+    } else if (idMejora == 3) {
+        _rebotes += 1; // Activa/suma +1 rebote por bala
+    }
+
+    archivo.guardarCatalogo(catalogo);
+    _vida = _vidaMaxima;
+    _requiereElegirMejora = false;
 }
 
 void Jugador::ganarExperiencia(int cantidad) {
@@ -287,11 +309,15 @@ bool Jugador::restablecerProgreso()
     ArchivoMejoras archivoMejoras;
     const std::vector<Mejora> iniciales{
         {1, "Vida Maxima", 0, 5, "Aumenta tu salud limite"},
-        {2, "Velocidad", 0, 3, "Corres mas rapido"}};
+        {2, "Velocidad", 0, 3, "Corres mas rapido"},
+        {3, "Rebote", 0, 3, "Tus balas rebotan a otro enemigo"}
+        };
+
     if (!archivo.guardar({1, 0, 0}) || !archivoMejoras.guardarCatalogo(iniciales))
     {
         return false;
     }
+    _rebotes = 0;
     _velocidad = 5.0f;
     cargarEstado(100, 1, 0, 0);
     reiniciar();
