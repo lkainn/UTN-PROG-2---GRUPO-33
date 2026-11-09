@@ -1,4 +1,5 @@
 #include "EstacionMejoras.h"
+#include "ArchivoPartidaEnCurso.h"
 
 #include <algorithm>
 #include <cmath>
@@ -146,14 +147,14 @@ OfertaArma EstacionMejoras::obtenerOferta(std::size_t indice) const
     return indice < _ofertas.size() ? _ofertas[indice] : OfertaArma{};
 }
 
-std::string EstacionMejoras::describirOpcion(std::size_t indice) const
+std::string EstacionMejoras::describirOpcion(std::size_t indice, const char* nombreArma) const
 {
     const OfertaArma oferta = obtenerOferta(indice);
     if (!oferta.esValida())
     {
         return "";
     }
-    std::string texto = std::string(InventarioArmas::obtenerNombreArma(oferta.idArma)) +
+    std::string texto = std::string(nombreArma) +
         " - " + InventarioArmas::obtenerNombreRareza(oferta.rareza) +
         " | +" + std::to_string(oferta.obtenerPorcentajeDano()) + "% dano";
     if (oferta.obtenerPorcentajeCadencia() > 0)
@@ -166,4 +167,10 @@ std::string EstacionMejoras::describirOpcion(std::size_t indice) const
             (oferta.idArma == 3 ? " | +1 perdigon" : " | +1 proyectil");
     }
     return texto;
+}
+
+bool EstacionMejoras::transferirEstado(ArchivoPartidaEnCurso& archivo)
+{
+    return archivo(_posicion, _costo, _menuAbierto, _ofertas) && _costo > 0 &&
+        archivo.zonas(_ofertasGuardadas, 100000);
 }

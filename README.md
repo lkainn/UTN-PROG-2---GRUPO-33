@@ -44,12 +44,16 @@ de `C:\Program Files\CodeBlocks\MinGW\bin`. Después se puede abrir
 
 ## Prototipo actual
 
-El perfil, las mejoras permanentes, el catalogo de enemigos y los resultados
-se guardan en `datos`. Esa carpeta se comparte al ejecutar desde la raiz y
-desde `bin/Debug`. U compra una mejora permanente de vida por 10 de chatarra;
-N reinicia el perfil y las mejoras sin borrar el historial de partidas.
+El perfil, las mejoras permanentes, los catalogos de armas y enemigos y los
+resultados se guardan en `datos`. Esa carpeta se comparte al ejecutar desde la raiz y
+desde `bin/Debug`. U compra una mejora permanente de vida por 10 de chatarra.
+Nueva partida pide confirmación antes de reiniciar el perfil y las mejoras.
 Al ganar o perder se guarda un unico resultado. Los detalles y las pruebas
 estan en `documentos/integracion_persistencia.md`.
+
+Al subir de nivel, el combate se pausa para elegir una mejora permanente
+con 1, 2 o 3. Las cartas disponibles dependen de sus niveles y la carta rara
+agrega rebotes a los proyectiles. Escape permite omitir la elección.
 
 Remache usa sprites pixel art con desgaste industrial y ocho direcciones de
 movimiento. El cuerpo y ambos brazos se orientan al objetivo antes de apuntar
@@ -100,6 +104,10 @@ muestra el número de oleada y los segundos de partida. Los rápidos se habilita
 desde el segundo 60 y los resistentes desde el 180. R limpia los enemigos y
 reinicia el reloj de oleadas; el menú de mejoras pausa el combate.
 
+Al aparecer, los enemigos comunes reciben un aumento según el tiempo de
+partida, hasta un 50 % de vida, un 25 % de daño de contacto y un 15 % de
+velocidad adicionales al minuto cinco.
+
 El suelo representa un depósito de chatarra al aire libre. `Escenario.h` y
 `Escenario.cpp` administran su textura, guardada en `recursos/entorno`.
 La cámara sigue al jugador y el suelo se repite en coordenadas de mundo,
@@ -120,17 +128,22 @@ acumulados se muestran en la interfaz.
 
 ### Menú inicial
 
-Al abrir el juego aparece el menú con Jugar, Controles y Salir. Las flechas
-arriba y abajo seleccionan una opción y Enter la confirma. Desde Controles,
-Enter o Escape vuelven al menú. El combate comienza al elegir Jugar.
-Escape desde el menú principal cierra la ventana.
+El menú ofrece **Continuar**, **Nueva partida**, **Controles**, **Ranking** y
+**Salir**. Las flechas seleccionan y Enter confirma. Desde Controles y Ranking,
+Enter o Escape vuelven al menú. Escape en el menú principal cierra la ventana.
 
-El menu usa la fuente existente y formas de SFML. El perfil y las mejoras
-permanentes se recuperan al comenzar una partida.
+**Continuar** reanuda la partida guardada con la posición, la vida, las armas,
+las oleadas y las decisiones pendientes. La opción queda inactiva mientras no
+haya una partida guardada. **Nueva partida** pide confirmación antes de
+descartar ese guardado y restablecer el nivel, la chatarra y las mejoras.
 
 Durante la partida, Escape abre el menú de pausa con Continuar y Salir.
 Flechas y Enter seleccionan la acción; Escape también permite continuar.
 La pausa conserva la partida y detiene movimiento, daño, disparos y oleadas.
+Salir en pausa o cerrar la ventana durante una partida guarda el estado en
+`datos/PartidaEnCurso.dat`. Si falla la escritura, el juego permite reintentar
+antes de cerrar. Al reanudar, el estado vuelve a la memoria y se guarda de nuevo
+al salir.
 Si una estación está abierta, Escape cancela primero la compra y devuelve
 el pago; otro Escape abre la pausa.
 
@@ -149,7 +162,6 @@ La prueba del menú se ejecuta con pruebas/probar_menu_principal.bat.
 | K | Recibir 20 de daño para pruebas, fuera del menú |
 | E | Obtener 40 de experiencia para pruebas, fuera del menú |
 | U | Comprar una mejora permanente de vida por 10 de chatarra |
-| N | Reiniciar perfil y mejoras, conservando el historial de partidas |
 
 También se admiten las teclas numéricas del teclado numérico. R restaura la
 vida, limpia disparos y recursos del suelo, reinicia las recargas y selecciona
@@ -159,6 +171,9 @@ el slot 1 actual. No recupera una pistola descartada.
 
 Se inicia con pistola en el primer slot y el segundo vacío. Las demás armas
 se adquieren en estaciones junto con los beneficios de la oferta elegida.
+El juego carga las estadísticas base de las armas desde `datos/Armas.dat`
+y las de los enemigos desde `datos/Enemigos.dat`. Ambos catálogos se
+incluyen con el proyecto y son obligatorios para iniciar el juego.
 Las dos armas equipadas disparan automáticamente, cada una con su alcance,
 orientación y recarga. Las balas nacen en la boca del arma dibujada, incluso
 al girar hacia la izquierda.
@@ -240,7 +255,7 @@ abren brevemente una ventana de SFML.
 - `src`: implementaciones `.cpp`.
 - `include`: encabezados `.h`.
 - `recursos`: sprites, fuentes y sonidos.
-- `datos`: carpeta prevista para archivos binarios; su persistencia sigue pendiente.
+- `datos`: catálogos binarios, progreso del jugador e historial de partidas.
 - `documentos`: decisiones y documentación del equipo.
 - `pruebas`: pruebas de los módulos y de integración.
 - `dependencias`: bibliotecas locales no incluidas en el repositorio.
@@ -262,12 +277,19 @@ mueren en el mismo fotograma, tiene prioridad la derrota. La pantalla final
 muestra duracion, bajas, chatarra recogida, nivel y puntaje. Enter comienza una
 partida nueva; Escape vuelve al menu principal. El resultado detiene el combate.
 
+Tras una victoria se puede pulsar **Continuar en modo infinito** o la tecla I.
+Se conserva la partida y, después del jefe, cada minuto transcurrido desde el
+minuto cinco suma otros 25 puntos porcentuales de vida, 15 de daño y 5 de
+velocidad a los nuevos enemigos. El aumento total de velocidad tiene un tope
+del 75 %. El historial registra la victoria al vencer al jefe y, al morir en
+modo infinito, la pantalla muestra el resumen de la partida completa.
+
 El puntaje suma 10 por baja, 2 por unidad de chatarra recogida y 5000 por victoria.
 La chatarra gastada sigue contando como recogida; los reembolsos no suman puntos.
 La duracion excluye las pausas y los menus de estaciones.
 
-Una partida nueva recupera el perfil y las mejoras permanentes, y restablece
-inventario, beneficios temporales, encuentros y precios.
+Enter en el resultado empieza otro intento con el perfil y las mejoras
+permanentes, y restablece inventario, beneficios temporales, encuentros y precios.
 R sigue siendo un reinicio de prueba que conserva las compras y el progreso.
 El resultado se guarda una sola vez en Partidas.dat y actualiza el record
 de puntaje del perfil. La prueba se ejecuta con

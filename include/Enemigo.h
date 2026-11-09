@@ -1,5 +1,7 @@
 #pragma once
 
+class ArchivoPartidaEnCurso;
+
 #include "TiposCompartidos.h"
 
 #include <cstdint>
@@ -29,6 +31,9 @@ class Enemigo {
         int experienciaOtorgada;
         int chatarraOtorgada;
     public:
+        bool transferirEstado(ArchivoPartidaEnCurso& archivo);
+        static std::uint64_t obtenerSiguienteId();
+        static void reservarIdentificadores(std::uint64_t siguiente);
         Enemigo(int , float , float , float , float , float , int , int , const char* , int , int );
         void actualizar(Posicion objetivo, float dt);
         Posicion obtenerPosicion() const;

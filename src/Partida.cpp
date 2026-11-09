@@ -1,4 +1,5 @@
 #include "Partida.h"
+#include "ArchivoPartidaEnCurso.h"
 
 const int Partida::PUNTOS_POR_ENEMIGO = 10;
 const int Partida::PUNTOS_POR_CHATARRA = 2;
@@ -130,4 +131,21 @@ void Partida::recalcularPuntaje() {
 
     const long long MAXIMO = 2147483647LL;  // el mayor int que entra en el .dat
     puntaje = (int)(total > MAXIMO ? MAXIMO : total);
+}
+
+bool Partida::transferirEstado(ArchivoPartidaEnCurso& archivo)
+{
+    if (!archivo(idPartida, idJugador, nivelAlcanzado, enemigosEliminados,
+                 chatarraObtenida, duracionSegundos, resultado) ||
+        idPartida < 0 || idJugador < 1 || nivelAlcanzado < 1 || enemigosEliminados < 0 ||
+        chatarraObtenida < 0 || duracionSegundos < 0.0f || duracionSegundos >= 1.0e9f ||
+        (resultado != ResultadoPartida::EnCurso && resultado != ResultadoPartida::Victoria))
+    {
+        return false;
+    }
+    if (archivo.leyendo())
+    {
+        recalcularPuntaje();
+    }
+    return true;
 }

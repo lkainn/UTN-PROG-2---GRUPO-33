@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Arma.h"
+#include "ArchivoArmas.h"
 #include "AspectoProyectiles.h"
 #include "AspectoArmas.h"
 #include "AspectoJugador.h"
@@ -30,6 +31,7 @@ public:
     void ejecutar();
 
 private:
+    explicit Juego(const ArchivoArmas::Catalogo& catalogoArmas);
     enum class EstadoJuego
     {
         Menu,
@@ -37,15 +39,28 @@ private:
         Ranking,
         Jugando,
         Pausa,
-        Resultado
+        Resultado,
+        SubiendoNivel,
+        ConfirmarReinicio
     };
     EstadoJuego _estado = EstadoJuego::Menu;
     int _opcionMenu = 0;
+    bool _continuacionDisponible = false;
+    std::string _mensajeMenu;
+    struct EstadoGuardado;
+    bool guardarPartida();
+    bool reanudarPartida();
+    bool confirmarNuevaPartida();
+    void salirDelJuego();
     void manejarEscape();
     void procesarEntradaMenu(sf::Keyboard::Scancode tecla);
     void dibujarMenuPrincipal();
     void cargarRanking();
     void dibujarRanking();
+    void prepararCartas();
+    void dibujarCartas();
+    std::array<bool, 3> _cartasDisponibles{};
+    bool _errorGuardadoCarta = false;
     std::vector<RegistroPartida> _ranking;
 
     enum class TipoArmaPrueba
@@ -71,6 +86,7 @@ private:
         TipoRecurso tipo;
         int cantidad;
         Posicion posicion;
+        bool transferirEstado(ArchivoPartidaEnCurso& archivo);
     };
 
     struct IndicadorRecurso {
@@ -96,6 +112,7 @@ private:
     GestorOleadas _gestorOleadas;
     Partida _partida{1};
     bool _partidaGuardada = false;
+    bool _modoInfinito = false;
     int _eliminadosRegistrados = 0;
     AspectoProyectiles _aspectoProyectiles;
     AspectoArmas _aspectoArmas;
@@ -126,13 +143,19 @@ private:
     bool comprarMejoraPermanente();
     bool reiniciarProgreso();
     void dibujarResultado();
+    bool puedeContinuarEnInfinito() const;
+    void continuarEnInfinito();
+    sf::FloatRect areaBotonInfinito() const;
+    void procesarClicResultado(sf::Vector2i posicion);
     Posicion obtenerAnclajeArma(std::size_t slot) const;
     Arma& obtenerArmaPorId(int idArma);
+    const char* obtenerNombreArma(int idArma);
     void dispararArma(std::size_t slot);
     void actualizarDanoContacto(float segundos);
     void actualizarIndicadoresDanio(float segundos);
     void actualizarRecursos(float segundos);
     void actualizarProyectiles(float segundos);
+    bool intentarRebote(Proyectil& proyectil, const std::vector<Enemigo>& enemigos);
     void dibujar();
     void dibujarRecursos();
     void dibujarIndicadoresDanio();

@@ -1,14 +1,18 @@
 #include "ArchivoMejoras.h"
 
 #include "CarpetaDatos.h"
+#include <algorithm>
 #include <cstring>
+#include <filesystem>
 
 namespace
 {
+constexpr Mejora REBOTE{3, "Rebote", 0, 3, "Tus balas rebotan a otro enemigo"};
+
 std::vector<Mejora> catalogoInicial()
 {
     return {{1, "Vida Maxima", 0, 5, "Aumenta tu salud limite"},
-            {2, "Velocidad", 0, 3, "Corres mas rapido"}};
+            {2, "Velocidad", 0, 3, "Corres mas rapido"}, REBOTE};
 }
 
 bool mejoraValida(const Mejora& mejora)
@@ -34,14 +38,26 @@ bool ArchivoMejoras::guardarCatalogo(const std::vector<Mejora>& catalogo)
         }
     }
     asegurarCarpetaDatos();
-    FILE* archivo = fopen(obtenerRutaDatos("Mejoras.dat").c_str(), "wb");
+    const std::string destino = obtenerRutaDatos("Mejoras.dat");
+    const std::string temporal = destino + ".tmp";
+    FILE* archivo = fopen(temporal.c_str(), "wb");
     if (archivo == nullptr)
     {
         return false;
     }
     const bool escrito = fwrite(catalogo.data(), sizeof(Mejora), catalogo.size(), archivo) == catalogo.size();
     const bool cerrado = fclose(archivo) == 0;
-    return escrito && cerrado;
+    std::error_code error;
+    if (escrito && cerrado)
+    {
+        std::filesystem::rename(temporal, destino, error);
+        if (!error)
+        {
+            return true;
+        }
+    }
+    std::filesystem::remove(temporal, error);
+    return false;
 }
 
 std::vector<Mejora> ArchivoMejoras::leerCatalogo()
@@ -64,6 +80,13 @@ std::vector<Mejora> ArchivoMejoras::leerCatalogo()
     {
         catalogo = catalogoInicial();
         guardarCatalogo(catalogo);
+    }
+    else if (std::none_of(catalogo.begin(), catalogo.end(), [](const Mejora& mejora)
+    {
+        return mejora.idMejora == REBOTE.idMejora;
+    }))
+    {
+        catalogo.push_back(REBOTE);
     }
     return catalogo;
 }

@@ -1,4 +1,5 @@
 #include "Arma.h"
+#include "ArchivoPartidaEnCurso.h"
 
 #include <algorithm>
 #include <cmath>
@@ -167,4 +168,11 @@ int Arma::obtenerNivelMaximo() const {
 
 bool Arma::puedeDisparar() const {
     return _dano > 0 && _velocidadAtaque > 0.0f && _tiempoRestante <= 0.0f;
+}
+
+bool Arma::transferirEstado(ArchivoPartidaEnCurso& archivo)
+{
+    return archivo(_tiempoRestante, _nivelActual, _porcentajeDano, _porcentajeCadencia, _especiales) &&
+        _tiempoRestante >= 0.0f && _nivelActual >= 0 && _nivelActual <= _nivelMaximo &&
+        _porcentajeDano >= 0 && _porcentajeCadencia >= 0 && _especiales >= 0 && _especiales <= 4;
 }

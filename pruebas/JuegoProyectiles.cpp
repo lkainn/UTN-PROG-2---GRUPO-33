@@ -171,15 +171,26 @@ int main()
     juego.actualizarDisparoAutomatico();
     juego._proyectiles.erase(std::remove_if(juego._proyectiles.begin(), juego._proyectiles.end(),
         [](const Proyectil& proyectil) { return proyectil.obtenerIdArma() != 2; }), juego._proyectiles.end());
-    const Posicion origenMetralleta = juego._proyectiles.front().obtenerPosicion();
-    juego.actualizarProyectiles(0.075f);
+    const auto avanzarDisparoCorto = [&juego]()
+    {
+        // Simula fotogramas cortos para que la bala no salte el rectangulo del enemigo.
+        for (int paso = 0; paso < 8 && !juego._proyectiles.empty(); ++paso)
+        {
+            juego.actualizarProyectiles(0.01f);
+        }
+    };
+    correcto &= comprobar(juego._proyectiles.size() == 1, "metralleta genera primer disparo");
+    const Posicion origenMetralleta = juego._proyectiles.empty()
+        ? Posicion{} : juego._proyectiles.front().obtenerPosicion();
+    avanzarDisparoCorto();
     correcto &= comprobar(juego._gestorOleadas.obtenerEnemigos()[0].estaVivo() && juego._proyectiles.empty(),
                           "un disparo de seis no mata enemigo con siete de vida");
     juego.actualizarArmas(0.125f);
     juego.actualizarDisparoAutomatico();
-    correcto &= comprobar(juego._proyectiles.front().obtenerPosicion().x == origenMetralleta.x,
+    correcto &= comprobar(juego._proyectiles.size() == 1 &&
+                          juego._proyectiles.front().obtenerPosicion().x == origenMetralleta.x,
                           "siguiente disparo nace en el mismo origen");
-    juego.actualizarProyectiles(0.075f);
+    avanzarDisparoCorto();
     correcto &= comprobar(!juego._gestorOleadas.obtenerEnemigos()[0].estaVivo() && juego.recursosSuelo.size() == 2,
                           "segundo disparo mata y entrega una recompensa");
     juego.reiniciarPrueba();

@@ -6,7 +6,11 @@
 #include "CarpetaDatos.h"
 #include "GestorOleadas.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
 #include <cstring>
+#include <filesystem>
 #include <iostream>
 #include <limits>
 
@@ -19,6 +23,18 @@ bool comprobar(bool condicion, const char* caso)
         std::cerr << "Fallo: " << caso << '\n';
     }
     return condicion;
+}
+
+bool coincideEstadisticas(Enemigo enemigo, int vida, int dano, float velocidad)
+{
+    const Posicion origen = enemigo.obtenerPosicion();
+    enemigo.actualizar({origen.x + 1000.0f, origen.y}, 1.0f);
+    const bool avanceCorrecto =
+        std::abs(enemigo.obtenerPosicion().x - origen.x - velocidad) < 0.001f;
+    enemigo.recibirDanio(vida - 1);
+    const bool quedaUnPunto = enemigo.estaVivo();
+    enemigo.recibirDanio(1);
+    return avanceCorrecto && enemigo.obtenerDano() == dano && quedaUnPunto && !enemigo.estaVivo();
 }
 
 bool escribirIncompleto(const char* nombre)
@@ -57,10 +73,14 @@ int main(int cantidadArgumentos, char** argumentos)
     correcto &= comprobar(perfiles.guardar({4, 123, 200}), "restaurar perfil de prueba");
     ArchivoMejoras mejoras;
     auto catalogo = mejoras.leerCatalogo();
-    correcto &= comprobar(catalogo.size() == 2, "catalogo de mejoras inicial");
+    correcto &= comprobar(catalogo.size() == 3, "catalogo de mejoras inicial");
     catalogo[0].nivelActual = 2;
     catalogo[1].nivelActual = 1;
-    correcto &= comprobar(mejoras.guardarCatalogo(catalogo), "guardar mejoras");
+    catalogo.resize(2);
+    correcto &= comprobar(mejoras.guardarCatalogo(catalogo), "guardar catalogo anterior a Rebote");
+    catalogo = mejoras.leerCatalogo();
+    correcto &= comprobar(catalogo.size() == 3 && catalogo[2].idMejora == 3 &&
+        catalogo[2].nivelActual == 0, "catalogo anterior incorpora Rebote");
     Jugador jugador;
     correcto &= comprobar(jugador.getNivel() == 4 && jugador.getChatarra() == 200 &&
         jugador.getVidaMaxima() == 200 && jugador.getVelocidad() == 6, "perfil y mejoras aplicados al construir jugador");
@@ -70,12 +90,22 @@ int main(int cantidadArgumentos, char** argumentos)
     std::memset(catalogo[0].nombre, 'X', sizeof(catalogo[0].nombre));
     correcto &= comprobar(!mejoras.guardarCatalogo(catalogo) && mejoras.leerCatalogo()[0].nivelActual == 2,
         "nombre sin terminador rechazado antes de escribir");
-    correcto &= comprobar(escribirIncompleto("Mejoras.dat") && mejoras.leerCatalogo().size() == 2,
+    jugador.ganarExperiencia(550);
+    correcto &= comprobar(jugador.aplicarMejoraElegida(3) && jugador.requiereElegirMejora() &&
+        jugador.aplicarMejoraElegida(2) && !jugador.requiereElegirMejora(),
+        "dos niveles habilitan dos cartas");
+    Jugador recargado;
+    correcto &= comprobar(recargado.getRebotes() == 1 && recargado.getVelocidad() == 7 &&
+        recargado.getVidaMaxima() == jugador.getVidaMaxima(), "reabrir restaura las mejoras");
+    correcto &= comprobar(escribirIncompleto("Mejoras.dat") && mejoras.leerCatalogo().size() == 3,
         "mejoras truncadas recuperan catalogo inicial");
 
     ArchivoEnemigos enemigos;
     auto variantes = enemigos.leerCatalogo();
-    correcto &= comprobar(variantes.size() == 4, "catalogo de cuatro enemigos");
+    const std::string rutaEnemigos = obtenerRutaDatos(ArchivoEnemigos::RUTA);
+    correcto &= comprobar(variantes.size() == 4 &&
+        std::filesystem::file_size(rutaEnemigos) == 4 * sizeof(RegistroEnemigo),
+        "carga el catalogo de enemigos incluido");
     variantes[0].dano = 77;
     correcto &= comprobar(enemigos.guardarCatalogo(variantes), "guardar balance de enemigos");
     GestorOleadas gestor;
@@ -91,8 +121,83 @@ int main(int cantidadArgumentos, char** argumentos)
     variantes[0].velocidad = std::numeric_limits<float>::infinity();
     correcto &= comprobar(!enemigos.guardarCatalogo(variantes) && enemigos.leerCatalogo()[0].dano == 88,
         "catalogo no acepta velocidades no finitas");
-    correcto &= comprobar(escribirIncompleto("Enemigos.dat") && enemigos.leerCatalogo().size() == 4,
-        "catalogo truncado recupera valores de fabrica");
+
+    variantes = enemigos.leerCatalogo();
+    variantes[BASICO].vida = 120;
+    variantes[BASICO].velocidad = 100.0f;
+    variantes[RAPIDO].eliminado = 1;
+    variantes[RESISTENTE].eliminado = 1;
+    const RegistroEnemigo jefe = variantes[JEFE];
+    std::swap(variantes[BASICO], variantes[JEFE]);
+    correcto &= comprobar(enemigos.guardarCatalogo(variantes) &&
+        enemigos.leerCatalogo()[RESISTENTE].eliminado == 1,
+        "guarda bajas logicas y ordena los registros por ID");
+    gestor.reiniciar();
+    gestor.actualizar({500, 500}, 150.0f);
+    gestor.actualizar({500, 500}, 150.0f);
+    gestor.actualizar({500, 500}, 60.0f);
+    const auto& activos = gestor.obtenerEnemigos();
+    correcto &= comprobar(activos.size() == 4 && gestor.jefeEstaVivo() &&
+        std::all_of(activos.begin(), activos.end(), [](const Enemigo& enemigo)
+        {
+            return enemigo.obtenerIdEnemigo() == BASICO + 1 || enemigo.obtenerIdEnemigo() == JEFE + 1;
+        }), "las bajas logicas no aparecen en las oleadas y el jefe sigue disponible");
+    correcto &= comprobar(activos.size() == 4 &&
+        coincideEstadisticas(activos[0], 150, 99, 107.5f) &&
+        coincideEstadisticas(activos[1], jefe.vida, jefe.dano, jefe.velocidad) &&
+        coincideEstadisticas(activos[2], 180, 110, 115.0f) &&
+        coincideEstadisticas(activos[3], 180, 110, 115.0f),
+        "la dificultad escala vida, dano y velocidad al aparecer, con tope y sin escalar al jefe");
+    for (Enemigo& enemigo : gestor.obtenerEnemigos())
+    {
+        if (enemigo.obtenerIdEnemigo() == JEFE + 1)
+        {
+            enemigo.recibirDanio(jefe.vida);
+        }
+    }
+    gestor.actualizar({500, 500}, 60.0f);
+    correcto &= comprobar(gestor.jefeFueDerrotado() && activos.size() == 4 &&
+        coincideEstadisticas(activos.front(), 150, 99, 107.5f) &&
+        coincideEstadisticas(activos.back(), 240, 136, 125.0f),
+        "despues del jefe los nuevos enemigos ganan vida, dano y velocidad adicionales");
+    gestor.actualizar({500, 500}, 660.0f);
+    correcto &= comprobar(activos.size() == 5 &&
+        coincideEstadisticas(activos.back(), 570, 282, 175.0f),
+        "el modo infinito limita la velocidad y sigue aumentando la vida y el dano");
+    gestor.reiniciar();
+    gestor.actualizar({500, 500}, 1.6f);
+    correcto &= comprobar(gestor.obtenerEnemigos().size() == 1 &&
+        coincideEstadisticas(gestor.obtenerEnemigos()[0], 120, 88, 100.08f),
+        "reiniciar vuelve al principio de la curva usando los valores base del archivo");
+    variantes[0].eliminado = 1;
+    correcto &= comprobar(!enemigos.guardarCatalogo(variantes), "el jefe no admite baja logica");
+    variantes[0].eliminado = 0;
+    variantes[3].eliminado = 1;
+    correcto &= comprobar(!enemigos.guardarCatalogo(variantes), "el basico no admite baja logica");
+
+    FILE* catalogoAnterior = fopen(rutaEnemigos.c_str(), "wb");
+    bool formatoAnteriorEscrito = catalogoAnterior != nullptr;
+    if (catalogoAnterior != nullptr)
+    {
+        for (const RegistroEnemigo& variante : variantes)
+        {
+            formatoAnteriorEscrito &= fwrite(&variante, offsetof(RegistroEnemigo, eliminado),
+                1, catalogoAnterior) == 1;
+        }
+        formatoAnteriorEscrito &= fclose(catalogoAnterior) == 0;
+    }
+    const auto compatibilidad = enemigos.leerCatalogo();
+    correcto &= comprobar(formatoAnteriorEscrito && compatibilidad[BASICO].dano == 88 &&
+        compatibilidad[RAPIDO].eliminado == 0 && compatibilidad[RESISTENTE].eliminado == 0 &&
+        std::filesystem::file_size(rutaEnemigos) == 4 * offsetof(RegistroEnemigo, eliminado),
+        "lee el formato anterior con sus valores y sin reescribirlo");
+    correcto &= comprobar(escribirIncompleto("Enemigos.dat"), "prepara catalogo truncado");
+    correcto &= comprobar(lecturaRechazada(enemigos, "Enemigos.dat", "danado") &&
+        std::filesystem::file_size(rutaEnemigos) == 1,
+        "rechaza el catalogo truncado y conserva el archivo");
+    correcto &= comprobar(std::filesystem::remove(rutaEnemigos) &&
+        lecturaRechazada(enemigos, "Enemigos.dat", "Falta") && !std::filesystem::exists(rutaEnemigos),
+        "el catalogo es obligatorio y el lector no lo recrea");
 
     ArchivoPartidas partidas;
     Partida victoria(1);

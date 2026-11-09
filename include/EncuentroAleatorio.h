@@ -1,5 +1,7 @@
 #pragma once
 
+class ArchivoPartidaEnCurso;
+
 #include "TiposCompartidos.h"
 #include <array>
 #include <map>
@@ -18,11 +20,13 @@ struct ObjetoEncuentro
     Posicion posicion;
     bool usado;
     bool presente = true;
+    bool transferirEstado(ArchivoPartidaEnCurso& archivo);
 };
 
 class EncuentroAleatorio
 {
 public:
+    bool transferirEstado(ArchivoPartidaEnCurso& archivo);
     using Zona = std::array<ObjetoEncuentro, 3>;
     using Zonas = std::map<std::pair<int, int>, Zona>;
 

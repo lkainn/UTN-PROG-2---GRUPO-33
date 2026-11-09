@@ -1,4 +1,5 @@
 #include "EncuentroAleatorio.h"
+#include "ArchivoPartidaEnCurso.h"
 
 #include <cmath>
 #include <limits>
@@ -100,4 +101,15 @@ ObjetoEncuentro* EncuentroAleatorio::buscarCercano(Posicion posicion, TipoEncuen
 const EncuentroAleatorio::Zonas& EncuentroAleatorio::obtenerZonas() const
 {
     return _zonas;
+}
+
+bool ObjetoEncuentro::transferirEstado(ArchivoPartidaEnCurso& archivo)
+{
+    return archivo(tipo, posicion, usado, presente) &&
+        (tipo == TipoEncuentro::Estacion || tipo == TipoEncuentro::Cofre);
+}
+
+bool EncuentroAleatorio::transferirEstado(ArchivoPartidaEnCurso& archivo)
+{
+    return archivo(_semilla) && archivo.zonas(_zonas, 100000);
 }

@@ -1,4 +1,5 @@
 #include "Enemigo.h"
+#include "EntornoDatosPrueba.h"
 
 #include <iostream>
 
@@ -12,6 +13,11 @@ bool verificar(bool condicion, const char* mensaje) {
 }
 
 int main() {
+    if (!prepararDatosPrueba())
+    {
+        return 1;
+    }
+
     Enemigo enemigo(
         1, 100.0f, 100.0f, 56.0f, 56.0f,
         150.0f, 100, 10, "Prueba", 10, 5);

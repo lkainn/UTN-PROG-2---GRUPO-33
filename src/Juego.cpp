@@ -5,20 +5,27 @@
 #include "ArchivoJugadores.h"
 #include "ArchivoMejoras.h"
 #include "ArchivoPartidas.h"
+#include "ArchivoPartidaEnCurso.h"
+#include "CarpetaDatos.h"
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <limits>
+#include <memory>
+#include <process.h>
 #include <string>
 #include <cmath>
 
 //std::min() recibe dos valores y devuelve el menor.
 
 namespace {
+constexpr const char* ARCHIVO_PARTIDA_EN_CURSO = "PartidaEnCurso.dat";
+constexpr std::uint32_t FIRMA_PARTIDA = 0x54504953u;
+constexpr std::uint32_t VERSION_PARTIDA = 1;
 constexpr float VELOCIDAD_PROYECTIL = 800.0f;
-constexpr float ALCANCE_ARMA = 600.0f;
 constexpr float ANCHO_PROYECTIL_PISTOLA = 28.0f;
 constexpr float ALTO_PROYECTIL_PISTOLA = 14.0f;
 constexpr float ANCHO_PROYECTIL_METRALLETA = 14.0f;
@@ -77,6 +84,14 @@ void configurarFiguraEnemigo(
     figura.setFillColor(obtenerColorEnemigo(idEnemigo));
 }
 
+Arma crearArma(const RegistroArma& registro, int cantidadProyectiles = 1,
+               float dispersion = 0.0f, int maximoImpactos = 1)
+{
+    return Arma(registro.idArma, registro.nombre, registro.dano, registro.velocidadAtaque,
+                registro.alcance, registro.nivelMaximo, cantidadProyectiles, dispersion,
+                maximoImpactos);
+}
+
 bool cargarFuenteDanio(sf::Font& fuente) {
     constexpr std::array<const char*, 2> RUTAS_FUENTE{{
         "recursos/Tuffy.ttf",
@@ -95,17 +110,24 @@ bool cargarFuenteDanio(sf::Font& fuente) {
 }
 
 Juego::Juego()
+    : Juego(ArchivoArmas{}.leerCatalogo())
+{
+}
+
+Juego::Juego(const ArchivoArmas::Catalogo& catalogoArmas)
     : ventana(
           sf::VideoMode({Configuracion::ANCHO_VENTANA, Configuracion::ALTO_VENTANA}),
           U"El \u00DAltimo Recolector"),
       _escenario{},
+      _inventarioArmas(std::array<bool, 4>{{true, catalogoArmas[1].eliminado == 0,
+                        catalogoArmas[2].eliminado == 0, catalogoArmas[3].eliminado == 0}}),
       _gestorOleadas{},
       _aspectoProyectiles{},
       _proyectiles{},
-      armaPrueba(1, "Pistola basica", 25, 2.0f, ALCANCE_ARMA, 5),
-      _metralletaPrueba(2, "Metralleta", 6, 8.0f, ALCANCE_ARMA, 5),
-      _escopetaPrueba(3, "Escopeta", 12, 0.8f, 300.0f, 5, 5, DISPERSION_ESCOPETA),
-      _canonEnergiaPrueba(4, "Canon de energia", 60, 0.5f, 800.0f, 5, 1, 0.0f, 3),
+      armaPrueba(crearArma(catalogoArmas[0])),
+      _metralletaPrueba(crearArma(catalogoArmas[1])),
+      _escopetaPrueba(crearArma(catalogoArmas[2], 5, DISPERSION_ESCOPETA)),
+      _canonEnergiaPrueba(crearArma(catalogoArmas[3], 1, 0.0f, 3)),
       _armaSeleccionada(TipoArmaPrueba::Pistola),
       fuenteDanioDisponible(cargarFuenteDanio(fuenteDanio)),
       indicadoresDanio{},
@@ -116,6 +138,9 @@ Juego::Juego()
     ventana.setKeyRepeatEnabled(false);
 
     reiniciarPrueba();
+    std::error_code error;
+    _continuacionDisponible = std::filesystem::is_regular_file(
+        obtenerRutaDatos(ARCHIVO_PARTIDA_EN_CURSO), error);
 }
 
 void Juego::ejecutar() {
@@ -133,7 +158,16 @@ void Juego::ejecutar() {
 void Juego::procesarEventos() {
     while (const auto evento = ventana.pollEvent()) {
         if (evento->is<sf::Event::Closed>()) {
-            ventana.close();
+            salirDelJuego();
+            continue;
+        }
+
+        if (const auto* clic = evento->getIf<sf::Event::MouseButtonPressed>())
+        {
+            if (clic->button == sf::Mouse::Button::Left)
+            {
+                procesarClicResultado(clic->position);
+            }
         }
 
         if (const auto* tecla = evento->getIf<sf::Event::KeyPressed>()) {
@@ -184,9 +218,6 @@ void Juego::procesarEventos() {
             } else if (tecla->scancode == sf::Keyboard::Scancode::U) {
                 ventana.setTitle(comprarMejoraPermanente() ?
                     "MEJORA PERMANENTE: Vida maxima aumentada" : "MEJORA NO DISPONIBLE");
-            } else if (tecla->scancode == sf::Keyboard::Scancode::N) {
-                ventana.setTitle(reiniciarProgreso() ?
-                    "PROGRESO REINICIADO: Nueva partida" : "NO SE PUDO REINICIAR EL PROGRESO");
             }
         }
     }
@@ -209,6 +240,11 @@ void Juego::actualizar() {
         actualizarPartida(0.0f);
         return;
     }
+    if (jugador.requiereElegirMejora())
+    {
+        prepararCartas();
+        return;
+    }
     actualizarArmas(segundos);
     jugador.procesarEntrada();
     jugador.actualizar(false);
@@ -223,7 +259,7 @@ void Juego::actualizar() {
                                jugador.getFormaColision(), segundos);
     actualizarRecursos(segundos);
     actualizarPartida(segundos);
-    if (_partida.estaEnCurso())
+    if (_estado == EstadoJuego::Jugando)
     {
         actualizarDisparoAutomatico();
     }
@@ -239,7 +275,7 @@ void Juego::actualizarEnemigos(float segundos)
 
 void Juego::actualizarPartida(float segundos)
 {
-    if (!_partida.estaEnCurso())
+    if (_modoInfinito ? _estado != EstadoJuego::Jugando : !_partida.estaEnCurso())
     {
         return;
     }
@@ -258,6 +294,16 @@ void Juego::actualizarPartida(float segundos)
     _partida.registrarEliminados(eliminados - _eliminadosRegistrados);
     _eliminadosRegistrados = eliminados;
     _partida.registrarNivel(jugador.getNivel());
+    if (_modoInfinito)
+    {
+        if (!jugador.estaVivo())
+        {
+            _estado = EstadoJuego::Resultado;
+            _opcionMenu = 0;
+        }
+        return;
+    }
+
     if (!jugador.estaVivo())
     {
         _partida.marcarDerrota();
@@ -410,6 +456,11 @@ void Juego::actualizarProyectiles(float segundos)
                     {
                         generarRecompensa(enemigo);
                     }
+                    if (proyectil.puedeRebotar() && intentarRebote(proyectil, enemigos))
+                    {
+                        break;
+                    }
+                    proyectil.terminarImpacto();
                     if (!proyectil.estaActivo())
                     {
                         break;
@@ -431,6 +482,35 @@ void Juego::actualizarProyectiles(float segundos)
             }),
         _proyectiles.end());
 }
+
+bool Juego::intentarRebote(Proyectil& proyectil, const std::vector<Enemigo>& enemigos)
+{
+    const Posicion origen = proyectil.obtenerPosicion();
+    const float radio = std::min(450.0f, proyectil.obtenerDistanciaRestante());
+    float distanciaMinima = radio * radio;
+    Posicion objetivo{};
+    bool encontrado = false;
+    for (const Enemigo& enemigo : enemigos)
+    {
+        if (!enemigo.estaVivo() || proyectil.yaImpacto(enemigo.obtenerIdInstancia()))
+        {
+            continue;
+        }
+        const FormaColision forma = enemigo.obtenerFormaColision();
+        const Posicion centro{forma.x + forma.ancho / 2.0f, forma.y + forma.alto / 2.0f};
+        const float dx = centro.x - origen.x;
+        const float dy = centro.y - origen.y;
+        const float distancia = dx * dx + dy * dy;
+        if (distancia > 0.0f && distancia < distanciaMinima)
+        {
+            distanciaMinima = distancia;
+            objetivo = centro;
+            encontrado = true;
+        }
+    }
+    return encontrado && proyectil.rebotarHacia(objetivo);
+}
+
 void Juego::dibujar() {
     if (_estado == EstadoJuego::Ranking)
     {
@@ -442,7 +522,7 @@ void Juego::dibujar() {
         dibujarResultado();
         return;
     }
-    if (_estado != EstadoJuego::Jugando)
+    if (_estado != EstadoJuego::Jugando && _estado != EstadoJuego::SubiendoNivel)
     {
         dibujarMenuPrincipal();
         return;
@@ -523,7 +603,14 @@ void Juego::dibujar() {
     dibujarIndicadoresRecurso();
     ventana.setView(ventana.getDefaultView());
     dibujarInterfaz();
-    dibujarMenuEstacion();
+    if (_estado == EstadoJuego::SubiendoNivel)
+    {
+        dibujarCartas();
+    }
+    else
+    {
+        dibujarMenuEstacion();
+    }
     ventana.display();
 }
 
@@ -653,9 +740,9 @@ void Juego::dibujarInterfaz() {
     chatarra.setFillColor(sf::Color(255, 190, 55));
     ventana.draw(chatarra);
 
-    const std::string nombresArmas = std::string(InventarioArmas::obtenerNombreArma(_inventarioArmas.obtenerIdSlot(0))) +
+    const std::string nombresArmas = std::string(obtenerNombreArma(_inventarioArmas.obtenerIdSlot(0))) +
         (_inventarioArmas.obtenerIdSlot(1) == 0 ? "" :
-            " + " + std::string(InventarioArmas::obtenerNombreArma(_inventarioArmas.obtenerIdSlot(1))));
+            " + " + std::string(obtenerNombreArma(_inventarioArmas.obtenerIdSlot(1))));
     sf::Text nombreArma(fuenteDanio, "ARMAS: " + nombresArmas, 14);
     nombreArma.setPosition({480.0f, 17.0f});
     nombreArma.setFillColor(sf::Color(235, 235, 235));
@@ -668,12 +755,12 @@ void Juego::dibujarInterfaz() {
     oleada.setPosition({810.0f, 17.0f});
     ventana.draw(oleada);
 
-std::string slots = "1: " + std::string(InventarioArmas::obtenerNombreArma(_inventarioArmas.obtenerIdSlot(0)));
+std::string slots = "1: " + std::string(obtenerNombreArma(_inventarioArmas.obtenerIdSlot(0)));
 if (_inventarioArmas.obtenerIdSlot(0) == 1) {
         slots += " (reemplazable)";
 } else {
     slots += " (fija)"; }
-    slots += " | 2: " + std::string(InventarioArmas::obtenerNombreArma(_inventarioArmas.obtenerIdSlot(1)));
+    slots += " | 2: " + std::string(obtenerNombreArma(_inventarioArmas.obtenerIdSlot(1)));
     if (_inventarioArmas.obtenerIdSlot(1) != 0) {
             slots += " (fija)";
     }
@@ -684,7 +771,11 @@ if (_inventarioArmas.obtenerIdSlot(0) == 1) {
     ventana.draw(inventario);
 
     std::string estadoJefe;
-    if (_gestorOleadas.jefeEnCamino())
+    if (_modoInfinito)
+    {
+        estadoJefe = "MODO INFINITO";
+    }
+    else if (_gestorOleadas.jefeEnCamino())
     {
         estadoJefe = "JEFE EN " + std::to_string(static_cast<int>(std::ceil(_gestorOleadas.segundosParaElJefe()))) + " s";
     }
@@ -1012,7 +1103,12 @@ void Juego::dispararArma(std::size_t slot)
     const float distanciaDisparo = std::min(arma.obtenerAlcance() * 0.9999f, std::max(1.0f, std::sqrt(distanciaMinima)));
     const Posicion destino{punta.x + std::cos(_angulosArmas[slot]) * distanciaDisparo,
                            punta.y + std::sin(_angulosArmas[slot]) * distanciaDisparo};
+    const std::size_t cantidadAnterior = _proyectiles.size();
     arma.intentarDispararRafaga(_proyectiles, punta, destino, velocidad, ancho, alto);
+    for (std::size_t indice = cantidadAnterior; indice < _proyectiles.size(); ++indice)
+    {
+        _proyectiles[indice].configurarRebotes(jugador.getRebotes());
+    }
 }
 
 void Juego::actualizarArmas(float segundos)
@@ -1062,6 +1158,11 @@ Arma& Juego::obtenerArmaPorId(int idArma)
     }
 }
 
+const char* Juego::obtenerNombreArma(int idArma)
+{
+    return idArma == 0 ? "Vacio" : obtenerArmaPorId(idArma).obtenerNombre();
+}
+
 void Juego::reiniciarPrueba() {
     cancelarCompraEstacion();
     jugador.reiniciar();
@@ -1076,6 +1177,7 @@ void Juego::reiniciarPrueba() {
     _gestorOleadas.reiniciar();
     _partida = Partida(1);
     _partidaGuardada = false;
+    _modoInfinito = false;
     _eliminadosRegistrados = 0;
     _proyectiles.clear();
     armaPrueba.reiniciar();
@@ -1219,9 +1321,9 @@ void Juego::dibujarMenuEstacion()
                     " de chatarra | Proxima compra: +60%", 22);
     costo.setPosition({300.0f, 270.0f});
     ventana.draw(costo);
-    const std::string slots = "Slot 1: " + std::string(InventarioArmas::obtenerNombreArma(_inventarioArmas.obtenerIdSlot(0))) +
+    const std::string slots = "Slot 1: " + std::string(obtenerNombreArma(_inventarioArmas.obtenerIdSlot(0))) +
         (_inventarioArmas.obtenerIdSlot(0) == 1 ? " (solo la pistola se puede reemplazar)" : " (fijo)") +
-        " | Slot 2: " + InventarioArmas::obtenerNombreArma(_inventarioArmas.obtenerIdSlot(1)) +
+        " | Slot 2: " + obtenerNombreArma(_inventarioArmas.obtenerIdSlot(1)) +
         (_inventarioArmas.obtenerIdSlot(1) == 0 ? "" : " (fijo)");
     sf::Text inventario(fuenteDanio, slots, 22);
     inventario.setPosition({300.0f, 315.0f});
@@ -1229,9 +1331,10 @@ void Juego::dibujarMenuEstacion()
     if (_opcionReemplazo < 3)
     {
         const BonificacionesArma bonos = _inventarioArmas.obtenerBonificaciones(1);
+        const OfertaArma oferta = _estacionMejoras.obtenerOferta(_opcionReemplazo);
         sf::Text advertencia(fuenteDanio,
             "REEMPLAZAR PISTOLA: ELECCION DEFINITIVA\n\n" +
-            _estacionMejoras.describirOpcion(_opcionReemplazo) +
+            _estacionMejoras.describirOpcion(_opcionReemplazo, obtenerNombreArma(oferta.idArma)) +
             "\n\nPerdes la pistola y sus mejoras: +" + std::to_string(bonos.porcentajeDano) +
             "% dano, +" + std::to_string(bonos.porcentajeCadencia) + "% cadencia, " +
             std::to_string(bonos.especiales) + " proyectiles extra.\n" +
@@ -1252,7 +1355,7 @@ void Juego::dibujarMenuEstacion()
         tarjeta.setOutlineColor(obtenerColorRareza(oferta.rareza));
         ventana.draw(tarjeta);
         sf::Text texto(fuenteDanio, std::to_string(i + 1) + "   " +
-                        _estacionMejoras.describirOpcion(i), 24);
+                        _estacionMejoras.describirOpcion(i, obtenerNombreArma(oferta.idArma)), 24);
         texto.setPosition({325.0f, 399.0f + i * 135.0f});
         texto.setFillColor(obtenerColorRareza(oferta.rareza));
         ventana.draw(texto);
@@ -1293,9 +1396,62 @@ void Juego::manejarEscape()
 
 void Juego::procesarEntradaMenu(sf::Keyboard::Scancode tecla)
 {
+    if (_estado == EstadoJuego::ConfirmarReinicio)
+    {
+        if (tecla == sf::Keyboard::Scancode::Escape)
+        {
+            _estado = EstadoJuego::Menu;
+        }
+        else if (tecla == sf::Keyboard::Scancode::Enter && !confirmarNuevaPartida())
+        {
+            _estado = EstadoJuego::Menu;
+            _mensajeMenu = "No se pudo iniciar una nueva partida.";
+        }
+        return;
+    }
+    if (_estado == EstadoJuego::SubiendoNivel)
+    {
+        using Tecla = sf::Keyboard::Scancode;
+        int opcion = -1;
+        if (tecla == Tecla::Num1 || tecla == Tecla::Numpad1)
+        {
+            opcion = 0;
+        }
+        else if (tecla == Tecla::Num2 || tecla == Tecla::Numpad2)
+        {
+            opcion = 1;
+        }
+        else if (tecla == Tecla::Num3 || tecla == Tecla::Numpad3)
+        {
+            opcion = 2;
+        }
+        else if (tecla == Tecla::Escape)
+        {
+            jugador.omitirMejora();
+            prepararCartas();
+            return;
+        }
+        if (opcion >= 0 && _cartasDisponibles[opcion])
+        {
+            if (jugador.aplicarMejoraElegida(opcion + 1))
+            {
+                prepararCartas();
+            }
+            else
+            {
+                _errorGuardadoCarta = true;
+            }
+        }
+        return;
+    }
+
     if (_estado == EstadoJuego::Resultado)
     {
-        if (tecla == sf::Keyboard::Scancode::Enter)
+        if (tecla == sf::Keyboard::Scancode::I)
+        {
+            continuarEnInfinito();
+        }
+        else if (tecla == sf::Keyboard::Scancode::Enter)
         {
             iniciarNuevaPartida();
         }
@@ -1315,13 +1471,15 @@ void Juego::procesarEntradaMenu(sf::Keyboard::Scancode tecla)
         }
         return;
     }
-    const int cantidadOpciones = _estado == EstadoJuego::Pausa ? 2 : 4;
+    const int cantidadOpciones = _estado == EstadoJuego::Pausa ? 2 : 5;
     if (tecla == sf::Keyboard::Scancode::Up)
     {
+        _mensajeMenu.clear();
         _opcionMenu = (_opcionMenu + cantidadOpciones - 1) % cantidadOpciones;
     }
     else if (tecla == sf::Keyboard::Scancode::Down)
     {
+        _mensajeMenu.clear();
         _opcionMenu = (_opcionMenu + 1) % cantidadOpciones;
     }
     else if (tecla == sf::Keyboard::Scancode::Escape)
@@ -1337,23 +1495,40 @@ void Juego::procesarEntradaMenu(sf::Keyboard::Scancode tecla)
     }
     else if (tecla == sf::Keyboard::Scancode::Enter)
     {
-        if (_opcionMenu == 0)
+        if (_estado == EstadoJuego::Pausa)
         {
-            if (_estado == EstadoJuego::Menu)
+            if (_opcionMenu == 0)
             {
-                iniciarNuevaPartida();
+                manejarEscape();
             }
             else
             {
-                _estado = EstadoJuego::Jugando;
-                relojFotogramas.restart();
+                salirDelJuego();
             }
         }
-        else if (_opcionMenu == 1 && _estado == EstadoJuego::Menu)
+        else if (_opcionMenu == 0)
+        {
+            if (_continuacionDisponible)
+            {
+                if (!reanudarPartida())
+                {
+                    _mensajeMenu = "No se pudo cargar la partida guardada.";
+                }
+            }
+            else
+            {
+                _mensajeMenu = "No hay una partida guardada.";
+            }
+        }
+        else if (_opcionMenu == 1)
+        {
+            _estado = EstadoJuego::ConfirmarReinicio;
+        }
+        else if (_opcionMenu == 2)
         {
             _estado = EstadoJuego::Controles;
         }
-        else if (_opcionMenu == 2 && _estado == EstadoJuego::Menu)
+        else if (_opcionMenu == 3)
         {
             cargarRanking();
             _estado = EstadoJuego::Ranking;
@@ -1389,31 +1564,54 @@ void Juego::dibujarMenuPrincipal()
         ventana.draw(texto);
         if (_estado == EstadoJuego::Menu || esPausa)
         {
-            const std::array<const char*, 4> OPCIONES = esPausa ?
-                std::array<const char*, 4>{{"CONTINUAR", "SALIR", "", ""}} :
-                std::array<const char*, 4>{{"JUGAR", "CONTROLES", "RANKING", "SALIR"}};
-            const int cantidadOpciones = esPausa ? 2 : 4;
+            const std::array<const char*, 5> OPCIONES = esPausa ?
+                std::array<const char*, 5>{{"CONTINUAR", "SALIR", "", "", ""}} :
+                std::array<const char*, 5>{{"CONTINUAR", "NUEVA PARTIDA", "CONTROLES", "RANKING", "SALIR"}};
+            const int cantidadOpciones = esPausa ? 2 : 5;
             for (int indice = 0; indice < cantidadOpciones; ++indice)
             {
-                const float altoBoton = esPausa ? 80.0f : 70.0f;
-                const float alto = tamanio.y / 2.0f + (esPausa ? -100.0f : -130.0f) +
-                    indice * (esPausa ? 110.0f : 95.0f);
+                const float altoBoton = esPausa ? 80.0f : 60.0f;
+                const float alto = tamanio.y / 2.0f + (esPausa ? -100.0f : -170.0f) +
+                    indice * (esPausa ? 110.0f : 80.0f);
                 const bool seleccionada = indice == _opcionMenu;
+                const bool disponible = esPausa || indice != 0 || _continuacionDisponible;
                 sf::RectangleShape boton({560.0f, altoBoton});
                 boton.setPosition({centroX - 280.0f, alto});
-                boton.setFillColor(seleccionada ? sf::Color(255, 190, 55) :
+                boton.setFillColor(seleccionada && disponible ? sf::Color(255, 190, 55) :
                                                  sf::Color(40, 50, 61));
+                if (seleccionada && !disponible)
+                {
+                    boton.setOutlineThickness(2.0f);
+                    boton.setOutlineColor(sf::Color(150, 170, 183));
+                }
                 ventana.draw(boton);
                 texto.setString(OPCIONES[indice]);
                 texto.setCharacterSize(32);
                 texto.setFillColor(seleccionada ? sf::Color(18, 23, 29) :
                                                  sf::Color(220, 230, 235));
+                if (!disponible)
+                {
+                    texto.setFillColor(sf::Color(150, 170, 183));
+                }
                 const sf::FloatRect area = texto.getLocalBounds();
                 texto.setOrigin({area.position.x + area.size.x / 2.0f,
                                  area.position.y + area.size.y / 2.0f});
                 texto.setPosition({centroX, alto + altoBoton / 2.0f});
                 ventana.draw(texto);
             }
+        }
+        else if (_estado == EstadoJuego::ConfirmarReinicio)
+        {
+            texto.setString(_continuacionDisponible ?
+                "Se descartara la partida guardada y se reiniciara el perfil.\n\n"
+                "Enter: nueva partida | Escape: cancelar" :
+                "Se borraran los niveles, la chatarra y las mejoras.\n\n"
+                "Enter: nueva partida | Escape: cancelar");
+            texto.setCharacterSize(24);
+            const auto area = texto.getLocalBounds();
+            texto.setOrigin({area.position.x + area.size.x / 2.0f, area.position.y});
+            texto.setPosition({centroX, tamanio.y / 2.0f - 90.0f});
+            ventana.draw(texto);
         }
         else
         {
@@ -1440,7 +1638,7 @@ void Juego::dibujarMenuPrincipal()
         }
         if (_estado == EstadoJuego::Menu || esPausa)
         {
-            texto.setString(esPausa ?
+            texto.setString(!_mensajeMenu.empty() ? _mensajeMenu : esPausa ?
                 "Flechas: elegir | Enter: confirmar | Escape: continuar" :
                 "Flechas: elegir   |   Enter: confirmar");
             texto.setCharacterSize(24);
@@ -1452,6 +1650,90 @@ void Juego::dibujarMenuPrincipal()
         }
     }
     ventana.display();
+}
+
+void Juego::prepararCartas()
+{
+    _estado = EstadoJuego::Jugando;
+    _errorGuardadoCarta = false;
+    if (!jugador.requiereElegirMejora())
+    {
+        return;
+    }
+    _cartasDisponibles.fill(false);
+    ArchivoMejoras archivo;
+    for (const Mejora& mejora : archivo.leerCatalogo())
+    {
+        if (mejora.idMejora >= 1 && mejora.idMejora <= 3 &&
+            mejora.nivelActual < mejora.nivelMaximo)
+        {
+            _cartasDisponibles[mejora.idMejora - 1] = true;
+        }
+    }
+    if (std::none_of(_cartasDisponibles.begin(), _cartasDisponibles.end(),
+        [](bool disponible) { return disponible; }))
+    {
+        while (jugador.requiereElegirMejora())
+        {
+            jugador.omitirMejora();
+        }
+        return;
+    }
+    if (_cartasDisponibles[0] || _cartasDisponibles[1])
+    {
+        std::bernoulli_distribution sorteo(0.25);
+        _cartasDisponibles[2] = _cartasDisponibles[2] && sorteo(_generador);
+    }
+    _estado = EstadoJuego::SubiendoNivel;
+}
+
+void Juego::dibujarCartas()
+{
+    const sf::Vector2f tamanio = ventana.getDefaultView().getSize();
+    sf::RectangleShape fondo(tamanio);
+    fondo.setFillColor(sf::Color(0, 0, 0, 215));
+    ventana.draw(fondo);
+    if (!fuenteDanioDisponible)
+    {
+        return;
+    }
+    sf::Text titulo(fuenteDanio, "NUEVO NIVEL - ELEGI UNA MEJORA", 34);
+    const auto limites = titulo.getLocalBounds();
+    titulo.setPosition({(tamanio.x - limites.size.x) / 2.0f - limites.position.x, tamanio.y * 0.22f});
+    ventana.draw(titulo);
+
+    const std::array<const char*, 3> TEXTOS{{
+        "1. VIDA MAXIMA\n+20 de vida",
+        "2. VELOCIDAD\n+1 de velocidad",
+        "3. REBOTE (RARA)\n+1 rebote por proyectil"
+    }};
+    const int cantidad = std::count(_cartasDisponibles.begin(), _cartasDisponibles.end(), true);
+    const float ancho = std::min(360.0f, tamanio.x * 0.26f);
+    const float separacion = ancho * 0.12f;
+    float x = (tamanio.x - cantidad * ancho - (cantidad - 1) * separacion) / 2.0f;
+    const float y = tamanio.y * 0.39f;
+    for (std::size_t indice = 0; indice < TEXTOS.size(); ++indice)
+    {
+        if (!_cartasDisponibles[indice])
+        {
+            continue;
+        }
+        sf::RectangleShape carta({ancho, tamanio.y * 0.20f});
+        carta.setPosition({x, y});
+        carta.setFillColor(indice == 2 ? sf::Color(55, 43, 26) : sf::Color(35, 52, 57));
+        carta.setOutlineThickness(2.0f);
+        carta.setOutlineColor(indice == 2 ? sf::Color(255, 190, 55) : sf::Color(100, 120, 140));
+        ventana.draw(carta);
+        sf::Text texto(fuenteDanio, TEXTOS[indice], static_cast<unsigned int>(ancho * 0.065f));
+        texto.setPosition({x + ancho * 0.07f, y + tamanio.y * 0.055f});
+        ventana.draw(texto);
+        x += ancho + separacion;
+    }
+    sf::Text ayuda(fuenteDanio, _errorGuardadoCarta ?
+        "No se pudo guardar. Volve a intentar o pulsa Escape." : "Escape: omitir mejora", 22);
+    const auto limitesAyuda = ayuda.getLocalBounds();
+    ayuda.setPosition({(tamanio.x - limitesAyuda.size.x) / 2.0f - limitesAyuda.position.x, tamanio.y * 0.68f});
+    ventana.draw(ayuda);
 }
 
 void Juego::cargarRanking()
@@ -1552,7 +1834,7 @@ void Juego::iniciarNuevaPartida()
     cancelarCompraEstacion();
     _estacionSeleccionada = nullptr;
     jugador = Jugador{};
-    _inventarioArmas = InventarioArmas{};
+    _inventarioArmas.reiniciar();
     _estacionMejoras = EstacionMejoras{};
     _encuentros = EncuentroAleatorio(_generador());
     _costoCofre = 15;
@@ -1604,6 +1886,280 @@ bool Juego::reiniciarProgreso()
     return true;
 }
 
+struct Juego::EstadoGuardado
+{
+    explicit EstadoGuardado(const Juego& juego)
+        : jugador(juego.jugador), oleadas(juego._gestorOleadas), partida(juego._partida),
+          inventario(juego._inventarioArmas), encuentros(juego._encuentros),
+          estacion(juego._estacionMejoras), generador(juego._generador),
+          proyectiles(juego._proyectiles), recursos(juego.recursosSuelo),
+          armas{{juego.armaPrueba, juego._metralletaPrueba, juego._escopetaPrueba,
+                 juego._canonEnergiaPrueba}},
+          angulos(juego._angulosArmas), reflejadas(juego._armasReflejadas),
+          armaSeleccionada(juego._armaSeleccionada), cartas(juego._cartasDisponibles),
+          eligiendoCarta(juego._estado == EstadoJuego::SubiendoNivel),
+          guardada(juego._partidaGuardada), infinito(juego._modoInfinito),
+          siguienteEnemigo(Enemigo::obtenerSiguienteId()),
+          eliminados(juego._eliminadosRegistrados), costoCofre(juego._costoCofre),
+          opcionReemplazo(static_cast<std::uint32_t>(juego._opcionReemplazo)),
+          tiempoDano(juego.tiempoRestanteDanoContacto)
+    {
+    }
+
+    Jugador jugador;
+    GestorOleadas oleadas;
+    Partida partida;
+    InventarioArmas inventario;
+    EncuentroAleatorio encuentros;
+    EstacionMejoras estacion;
+    std::mt19937 generador;
+    std::vector<Proyectil> proyectiles;
+    std::vector<RecursoSuelo> recursos;
+    std::array<Arma, 4> armas;
+    std::array<float, 2> angulos;
+    std::array<bool, 2> reflejadas;
+    TipoArmaPrueba armaSeleccionada;
+    std::array<bool, 3> cartas;
+    bool eligiendoCarta;
+    bool guardada;
+    bool infinito;
+    std::uint64_t siguienteEnemigo;
+    int eliminados;
+    int costoCofre;
+    std::uint32_t opcionReemplazo;
+    float tiempoDano;
+
+    ObjetoEncuentro* buscarEstacionSeleccionada()
+    {
+        if (!estacion.menuAbierto())
+        {
+            return nullptr;
+        }
+        const Posicion posicion = estacion.obtenerPosicion();
+        ObjetoEncuentro* objeto = encuentros.buscarCercano(posicion, TipoEncuentro::Estacion);
+        if (objeto != nullptr && objeto->posicion.x == posicion.x && objeto->posicion.y == posicion.y)
+        {
+            return objeto;
+        }
+        return nullptr;
+    }
+
+    bool transferirEstado(ArchivoPartidaEnCurso& archivo)
+    {
+        std::uint32_t firma = FIRMA_PARTIDA;
+        std::uint32_t version = VERSION_PARTIDA;
+        if (!archivo(firma, version) || firma != FIRMA_PARTIDA || version != VERSION_PARTIDA ||
+            !archivo(jugador, oleadas, partida, inventario, encuentros, estacion, generador,
+                     armas, angulos, reflejadas, armaSeleccionada, cartas, eligiendoCarta,
+                     guardada, infinito, siguienteEnemigo, eliminados, costoCofre, opcionReemplazo, tiempoDano) ||
+            !archivo.lista(proyectiles, 20000, []
+            {
+                return Proyectil({0, 0}, 0, 0, 1, 1, 0);
+            }) ||
+            !archivo.lista(recursos, 100000) || !archivo.finalizar())
+        {
+            return false;
+        }
+        const int indiceArma = static_cast<int>(armaSeleccionada);
+        const auto& enemigos = oleadas.obtenerEnemigos();
+        const bool idsValidos = siguienteEnemigo > 0 && siguienteEnemigo < (std::uint64_t{1} << 63) &&
+            std::all_of(enemigos.begin(), enemigos.end(), [&](const Enemigo& enemigo)
+            {
+                return enemigo.obtenerIdInstancia() < siguienteEnemigo;
+            });
+        const bool algunaCarta = std::any_of(cartas.begin(), cartas.end(), [](bool carta) { return carta; });
+        return indiceArma >= 0 && indiceArma < static_cast<int>(armas.size()) &&
+            idsValidos && infinito == partida.fueVictoria() && (!guardada || infinito) &&
+            eliminados >= 0 && costoCofre > 0 && opcionReemplazo <= 3 && tiempoDano >= 0.0f &&
+            (!eligiendoCarta || (jugador.requiereElegirMejora() && algunaCarta)) &&
+            (estacion.menuAbierto() ? buscarEstacionSeleccionada() != nullptr : opcionReemplazo == 3);
+    }
+};
+
+bool Juego::RecursoSuelo::transferirEstado(ArchivoPartidaEnCurso& archivo)
+{
+    return archivo(tipo, cantidad, posicion) && cantidad > 0 &&
+        (tipo == TipoRecurso::Experiencia || tipo == TipoRecurso::Chatarra);
+}
+
+bool Juego::guardarPartida()
+{
+    asegurarCarpetaDatos();
+    const std::string ruta = obtenerRutaDatos(ARCHIVO_PARTIDA_EN_CURSO);
+    const std::string temporal = ruta + "." + std::to_string(_getpid()) + ".tmp";
+    EstadoGuardado estado(*this);
+    std::unique_ptr<FILE, decltype(&fclose)> archivo(fopen(temporal.c_str(), "wb"), fclose);
+    if (!archivo)
+    {
+        return false;
+    }
+    ArchivoPartidaEnCurso binario(archivo.get(), false);
+    const bool escrito = estado.transferirEstado(binario);
+    const bool cerrado = fclose(archivo.release()) == 0;
+    std::error_code error;
+    if (escrito && cerrado)
+    {
+        std::filesystem::rename(temporal, ruta, error);
+        if (!error)
+        {
+            return true;
+        }
+    }
+    std::filesystem::remove(temporal, error);
+    return false;
+}
+
+bool Juego::reanudarPartida()
+{
+    const std::string ruta = obtenerRutaDatos(ARCHIVO_PARTIDA_EN_CURSO);
+    std::unique_ptr<FILE, decltype(&fclose)> archivo(fopen(ruta.c_str(), "rb"), fclose);
+    if (!archivo)
+    {
+        return false;
+    }
+    EstadoGuardado estado(*this);
+    ArchivoPartidaEnCurso binario(archivo.get(), true);
+    const bool leido = estado.transferirEstado(binario);
+    const bool cerrado = fclose(archivo.release()) == 0;
+    if (!leido || !cerrado)
+    {
+        return false;
+    }
+    // Una partida reanudada queda en memoria hasta la siguiente salida.
+    // Asi un resultado registrado nunca se puede obtener otra vez del guardado anterior.
+    std::error_code error;
+    if (!std::filesystem::remove(ruta, error) || error)
+    {
+        return false;
+    }
+
+    Enemigo::reservarIdentificadores(estado.siguienteEnemigo);
+    jugador = std::move(estado.jugador);
+    _gestorOleadas = std::move(estado.oleadas);
+    _partida = estado.partida;
+    _inventarioArmas = estado.inventario;
+    _encuentros = std::move(estado.encuentros);
+    _estacionMejoras = std::move(estado.estacion);
+    _estacionSeleccionada = _estacionMejoras.menuAbierto() ?
+        _encuentros.buscarCercano(_estacionMejoras.obtenerPosicion(), TipoEncuentro::Estacion) : nullptr;
+    _generador = estado.generador;
+    _proyectiles = std::move(estado.proyectiles);
+    recursosSuelo = std::move(estado.recursos);
+    armaPrueba = estado.armas[0];
+    _metralletaPrueba = estado.armas[1];
+    _escopetaPrueba = estado.armas[2];
+    _canonEnergiaPrueba = estado.armas[3];
+    _angulosArmas = estado.angulos;
+    _armasReflejadas = estado.reflejadas;
+    _armaSeleccionada = estado.armaSeleccionada;
+    _cartasDisponibles = estado.cartas;
+    _partidaGuardada = estado.guardada;
+    _modoInfinito = estado.infinito;
+    _eliminadosRegistrados = estado.eliminados;
+    _costoCofre = estado.costoCofre;
+    _opcionReemplazo = estado.opcionReemplazo;
+    tiempoRestanteDanoContacto = estado.tiempoDano;
+    _estado = estado.eligiendoCarta ? EstadoJuego::SubiendoNivel : EstadoJuego::Jugando;
+    _continuacionDisponible = false;
+    _mensajeMenu.clear();
+    _opcionMenu = 0;
+    _errorGuardadoCarta = false;
+    _aspectoJugador.reiniciar(jugador.getPosicion());
+    _aspectoEnemigos.reiniciar();
+    _escenario.actualizar(jugador.getPosicion());
+    relojFotogramas.restart();
+    return true;
+}
+
+bool Juego::confirmarNuevaPartida()
+{
+    const std::string ruta = obtenerRutaDatos(ARCHIVO_PARTIDA_EN_CURSO);
+    const std::string anterior = ruta + "." + std::to_string(_getpid()) + ".anterior";
+    std::error_code error;
+    const bool habiaGuardado = std::filesystem::exists(ruta, error);
+    if (error)
+    {
+        return false;
+    }
+    if (habiaGuardado)
+    {
+        std::filesystem::rename(ruta, anterior, error);
+        if (error)
+        {
+            return false;
+        }
+    }
+    if (!reiniciarProgreso())
+    {
+        if (habiaGuardado)
+        {
+            std::filesystem::rename(anterior, ruta, error);
+        }
+        return false;
+    }
+    if (habiaGuardado)
+    {
+        std::filesystem::remove(anterior, error);
+    }
+    _continuacionDisponible = false;
+    _mensajeMenu.clear();
+    return true;
+}
+
+void Juego::salirDelJuego()
+{
+    const bool partidaActiva = _estado == EstadoJuego::Jugando || _estado == EstadoJuego::Pausa ||
+        _estado == EstadoJuego::SubiendoNivel;
+    if (partidaActiva && !jugador.estaVivo())
+    {
+        actualizarPartida(0.0f);
+    }
+    if (partidaActiva && jugador.estaVivo() && !guardarPartida())
+    {
+        ventana.setTitle("No se pudo guardar la partida. Volve a intentar.");
+        if (_estado == EstadoJuego::Jugando && !_estacionMejoras.menuAbierto())
+        {
+            manejarEscape();
+            _opcionMenu = 1;
+        }
+        _mensajeMenu = "No se pudo guardar. Volve a intentar.";
+        return;
+    }
+    ventana.close();
+}
+
+bool Juego::puedeContinuarEnInfinito() const
+{
+    return _estado == EstadoJuego::Resultado && _partida.fueVictoria() && !_modoInfinito;
+}
+
+void Juego::continuarEnInfinito()
+{
+    if (puedeContinuarEnInfinito())
+    {
+        _modoInfinito = true;
+        _estado = EstadoJuego::Jugando;
+        relojFotogramas.restart();
+    }
+}
+
+sf::FloatRect Juego::areaBotonInfinito() const
+{
+    const sf::Vector2f tamanio = ventana.getDefaultView().getSize();
+    const float ancho = std::min(540.0f, tamanio.x * 0.8f);
+    const float alto = std::min(66.0f, tamanio.y * 0.10f);
+    return {{(tamanio.x - ancho) / 2.0f, tamanio.y * 0.68f}, {ancho, alto}};
+}
+
+void Juego::procesarClicResultado(sf::Vector2i posicion)
+{
+    if (puedeContinuarEnInfinito() &&
+        areaBotonInfinito().contains(ventana.mapPixelToCoords(posicion, ventana.getDefaultView())))
+    {
+        continuarEnInfinito();
+    }
+}
+
 void Juego::dibujarResultado()
 {
     ventana.setView(ventana.getDefaultView());
@@ -1611,24 +2167,49 @@ void Juego::dibujarResultado()
     if (fuenteDanioDisponible)
     {
         const sf::Vector2f tamanio = ventana.getDefaultView().getSize();
-        const std::string resultado = _partida.fueVictoria() ? "VICTORIA" : "DERROTA";
-        const std::array<std::string, 9> lineas{{resultado,
-            "Duracion: " + std::to_string(_partida.obtenerDuracionSegundos()) + " s",
+        const char* resultado = _modoInfinito ? "FIN DEL MODO INFINITO" :
+            (_partida.fueVictoria() ? "VICTORIA" : "DERROTA");
+        const int duracion = _modoInfinito ? static_cast<int>(_gestorOleadas.tiempoDePartida()) :
+            _partida.obtenerDuracionSegundos();
+        const std::array<std::string, 7> lineas{{resultado,
+            "Duracion: " + std::to_string(duracion) + " s",
             "Enemigos eliminados: " + std::to_string(_partida.obtenerEnemigosEliminados()),
             "Chatarra recogida: " + std::to_string(_partida.obtenerChatarraObtenida()),
             "Nivel alcanzado: " + std::to_string(_partida.obtenerNivelAlcanzado()),
             "Puntaje: " + std::to_string(_partida.obtenerPuntaje()),
-            "Enter: volver a jugar", "Escape: menu principal",
-            _partidaGuardada ? "Resultado guardado" : "No se pudo guardar el resultado"}};
+            _partidaGuardada ? (_modoInfinito ? "Victoria registrada al derrotar al jefe" :
+                "Resultado guardado") : "No se pudo guardar el resultado"}};
         for (std::size_t indice = 0; indice < lineas.size(); ++indice)
         {
             sf::Text texto(fuenteDanio, lineas[indice], indice == 0 ? 54 : 28);
             const sf::FloatRect area = texto.getLocalBounds();
             texto.setOrigin({area.position.x + area.size.x / 2.0f, area.position.y});
-            texto.setPosition({tamanio.x / 2.0f, tamanio.y / 2.0f - 280.0f + indice * 75.0f});
+            texto.setPosition({tamanio.x / 2.0f, tamanio.y * (0.16f + indice * 0.07f)});
             texto.setFillColor(indice == 0 ? sf::Color(255, 190, 55) : sf::Color(220, 230, 235));
             ventana.draw(texto);
         }
+        if (puedeContinuarEnInfinito())
+        {
+            const sf::FloatRect area = areaBotonInfinito();
+            sf::RectangleShape boton(area.size);
+            boton.setPosition(area.position);
+            boton.setFillColor(sf::Color(62, 43, 22));
+            boton.setOutlineColor(sf::Color(255, 190, 55));
+            boton.setOutlineThickness(2.0f);
+            ventana.draw(boton);
+
+            sf::Text texto(fuenteDanio, "Continuar en modo infinito  [I]", 28);
+            const sf::FloatRect limites = texto.getLocalBounds();
+            texto.setOrigin(limites.position + limites.size / 2.0f);
+            texto.setPosition(area.position + area.size / 2.0f);
+            texto.setFillColor(sf::Color(255, 216, 135));
+            ventana.draw(texto);
+        }
+        sf::Text ayuda(fuenteDanio, "Enter: volver a jugar   |   Escape: menu principal", 24);
+        const sf::FloatRect limites = ayuda.getLocalBounds();
+        ayuda.setOrigin({limites.position.x + limites.size.x / 2.0f, limites.position.y});
+        ayuda.setPosition({tamanio.x / 2.0f, tamanio.y * 0.84f});
+        ventana.draw(ayuda);
     }
     ventana.display();
 }

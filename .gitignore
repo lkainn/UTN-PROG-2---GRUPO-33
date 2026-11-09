@@ -9,3 +9,5 @@ dependencias/*.zip
 datos/Jugadores.dat
 datos/Mejoras.dat
 datos/Partidas.dat
+datos/PartidaEnCurso.dat
+datos/PartidaEnCurso.dat.*

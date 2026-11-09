@@ -1,7 +1,10 @@
 #include "GestorOleadas.h"
+#include "ArchivoPartidaEnCurso.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <limits>
 
 const float GestorOleadas::DISTANCIA_APARICION = 700.0f;
 
@@ -28,6 +31,20 @@ namespace {
 // cos() y sin().
 const float VUELTA_COMPLETA = 6.2831853f;
 
+constexpr double AUMENTO_MAXIMO_VIDA = 0.50;
+constexpr double AUMENTO_MAXIMO_DANO = 0.25;
+constexpr double AUMENTO_MAXIMO_VELOCIDAD = 0.15;
+constexpr double AUMENTO_VIDA_POR_MINUTO_INFINITO = 0.25;
+constexpr double AUMENTO_DANO_POR_MINUTO_INFINITO = 0.15;
+constexpr double AUMENTO_VELOCIDAD_POR_MINUTO_INFINITO = 0.05;
+constexpr double TOPE_VELOCIDAD_INFINITA = 0.75;
+
+int escalarEstadistica(int base, double aumento)
+{
+    const double ajustada = std::round(base * (1.0 + aumento));
+    return static_cast<int>(std::min(ajustada, static_cast<double>(std::numeric_limits<int>::max())));
+}
+
 }  // namespace
 
 GestorOleadas::GestorOleadas()
@@ -53,16 +70,13 @@ void GestorOleadas::actualizar(Posicion posicionJugador, float dt) {
     // cuando aparece el jefe.
     tiempoPartida += dt;
 
-    // El orden importa. Primero aparecen los nuevos, despues se mueven todos,
-    // y al final se limpian los muertos en una pasada aparte: borrar mientras
-    // se recorre el vector corrompe el recorrido.
+    // Detectar la muerte antes de generar usa el ritmo y escalado posteriores al jefe.
+    // Se hace antes de limpiar para poder reconocer la instancia del jefe.
+    detectarJefeDerrotado();
     generarJefeSiCorresponde(posicionJugador);
     generarSiCorresponde(posicionJugador, dt);
     moverEnemigos(posicionJugador, dt);
 
-    // Va antes de limpiar: una vez que el jefe sale del vector ya no se puede
-    // distinguir si murio o si nunca estuvo.
-    detectarJefeDerrotado();
     quitarMuertos();
 }
 
@@ -189,50 +203,44 @@ Posicion GestorOleadas::posicionDeAparicion(Posicion centro) {
 // Las variantes se van habilitando con el tiempo: al principio solo basicos,
 // despues entran los rapidos y al final los resistentes. Entre las
 // habilitadas se sortea con la misma probabilidad.
-TipoEnemigo GestorOleadas::variantePorAparecer() {
-    int habilitadas = 1;  // el basico esta desde el segundo cero
-
-    if (tiempoPartida >= SEGUNDOS_APARECE_RAPIDO) {
-        habilitadas = 2;
+TipoEnemigo GestorOleadas::variantePorAparecer()
+{
+    std::array<TipoEnemigo, 3> candidatas{{BASICO}};
+    int cantidad = 1;
+    if (tiempoPartida >= SEGUNDOS_APARECE_RAPIDO && catalogo[RAPIDO].eliminado == 0)
+    {
+        candidatas[cantidad++] = RAPIDO;
     }
-    if (tiempoPartida >= SEGUNDOS_APARECE_RESISTENTE) {
-        habilitadas = 3;
+    if (tiempoPartida >= SEGUNDOS_APARECE_RESISTENTE && catalogo[RESISTENTE].eliminado == 0)
+    {
+        candidatas[cantidad++] = RESISTENTE;
     }
 
-    std::uniform_int_distribution<int> sorteo(0, habilitadas - 1);
-
-    switch (sorteo(generador)) {
-        case 1:
-            return RAPIDO;
-        case 2:
-            return RESISTENTE;
-        default:
-            return BASICO;
-    }
+    std::uniform_int_distribution<int> sorteo(0, cantidad - 1);
+    return candidatas[sorteo(generador)];
 }
 
 // El id del catalogo es el del enum mas uno: BASICO es 1, RAPIDO 2, y asi.
-const RegistroEnemigo* GestorOleadas::registroDe(TipoEnemigo tipo) const {
-    const int idBuscado = (int)tipo + 1;
-
-    for (const RegistroEnemigo& registro : catalogo) {
-        if (registro.idEnemigo == idBuscado) {
-            return &registro;
-        }
+Enemigo GestorOleadas::fabricar(TipoEnemigo tipo, float x, float y) const
+{
+    RegistroEnemigo registro = catalogo[tipo];
+    if (tipo != JEFE)
+    {
+        const double progreso = progresoDificultad();
+        const double minutosInfinitos = jefeDerrotado
+            ? (static_cast<double>(tiempoPartida) - SEGUNDOS_DIFICULTAD_MAXIMA) / 60.0
+            : 0.0;
+        registro.vida = escalarEstadistica(registro.vida,
+            AUMENTO_MAXIMO_VIDA * progreso + AUMENTO_VIDA_POR_MINUTO_INFINITO * minutosInfinitos);
+        registro.dano = escalarEstadistica(registro.dano,
+            AUMENTO_MAXIMO_DANO * progreso + AUMENTO_DANO_POR_MINUTO_INFINITO * minutosInfinitos);
+        const double aumentoVelocidad = std::min(TOPE_VELOCIDAD_INFINITA,
+            AUMENTO_MAXIMO_VELOCIDAD * progreso + AUMENTO_VELOCIDAD_POR_MINUTO_INFINITO * minutosInfinitos);
+        const double velocidad = registro.velocidad * (1.0 + aumentoVelocidad);
+        registro.velocidad = static_cast<float>(
+            std::min(velocidad, static_cast<double>(std::numeric_limits<float>::max())));
     }
-    return NULL;
-}
-
-// Si el catalogo trae la variante se usan sus valores; si no, se cae en los
-// que estan escritos en crearEnemigo(). Asi un archivo incompleto no deja al
-// juego sin enemigos.
-Enemigo GestorOleadas::fabricar(TipoEnemigo tipo, float x, float y) const {
-    const RegistroEnemigo* registro = registroDe(tipo);
-
-    if (registro != NULL) {
-        return crearEnemigoDesdeCatalogo(*registro, x, y);
-    }
-    return crearEnemigo(tipo, x, y);
+    return crearEnemigoDesdeCatalogo(registro, x, y);
 }
 
 // El jefe aparece una sola vez por partida, al llegar a su minuto. No pasa por
@@ -325,4 +333,42 @@ void GestorOleadas::quitarMuertos() {
     totalEliminados += (int)std::distance(primerMuerto, enemigos.end());
 
     enemigos.erase(primerMuerto, enemigos.end());
+}
+
+bool GestorOleadas::transferirEstado(ArchivoPartidaEnCurso& archivo)
+{
+    if (!archivo(tiempoPartida, tiempoAcumulado, totalEliminados,
+                 jefeGenerado, jefeDerrotado, idInstanciaJefe, generador) ||
+        !archivo.lista(enemigos, static_cast<std::uint32_t>(MAXIMO_VIVOS_FINAL + 1), []
+        {
+            return Enemigo(1, 0, 0, 1, 1, 0, 1, 0, "", 0, 0);
+        }) ||
+        tiempoPartida < 0.0f || tiempoPartida >= 1.0e9f || tiempoAcumulado < 0.0f ||
+        totalEliminados < 0 || (jefeGenerado != (idInstanciaJefe != 0)) ||
+        (jefeDerrotado && !jefeGenerado))
+    {
+        return false;
+    }
+
+    bool tieneJefe = false;
+    for (std::size_t i = 0; i < enemigos.size(); ++i)
+    {
+        const Enemigo& enemigo = enemigos[i];
+        for (std::size_t j = 0; j < i; ++j)
+        {
+            if (enemigos[j].obtenerIdInstancia() == enemigo.obtenerIdInstancia())
+            {
+                return false;
+            }
+        }
+        if (enemigo.obtenerIdEnemigo() == 4)
+        {
+            if (enemigo.obtenerIdInstancia() != idInstanciaJefe)
+            {
+                return false;
+            }
+            tieneJefe = true;
+        }
+    }
+    return tieneJefe == (jefeGenerado && !jefeDerrotado);
 }
