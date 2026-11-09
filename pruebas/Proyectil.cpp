@@ -83,6 +83,15 @@ int main() {
     invalido.limitarAlcance(-1.0f);
     correcto &= comprobar(!invalido.estaActivo(), "alcance invalido desactiva proyectil");
 
+    Proyectil rebote({0.0f, 0.0f}, 100.0f, 0.0f, 8.0f, 4.0f, 100, 4, 2);
+    rebote.configurarRebotes(1);
+    correcto &= comprobar(rebote.registrarImpacto(1) && rebote.yaImpacto(1) &&
+        rebote.rebotarHacia({0.0f, 20.0f}) && rebote.obtenerDano() == 70 &&
+        !rebote.puedeRebotar(), "rebote consume su propio cupo y reduce el dano");
+    correcto &= comprobar(!rebote.registrarImpacto(1) && rebote.registrarImpacto(2) &&
+        rebote.estaActivo() && rebote.registrarImpacto(3) && !rebote.estaActivo(),
+        "rebote conserva la penetracion y evita impactos repetidos");
+
     if (correcto) {
         std::cout << "Proyectil: pruebas correctas\n";
     }

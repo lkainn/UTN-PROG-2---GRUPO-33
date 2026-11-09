@@ -7,7 +7,7 @@ set "SFML=dependencias\SFML"
 if not exist "bin\Debug" mkdir "bin\Debug"
 "%BIN_COMPILADOR%\g++.exe" -std=c++17 -Wall -Wextra ^
     -Iinclude -I"%SFML%\include" ^
-    pruebas\AspectoDesguazador.cpp src\Juego.cpp src\AspectoEnemigos.cpp src\ArchivoPartidas.cpp src\AspectoJugador.cpp src\Partida.cpp src\AspectoEncuentros.cpp src\AspectoProyectiles.cpp src\AspectoArmas.cpp src\Escenario.cpp src\EstacionMejoras.cpp src\InventarioArmas.cpp src\EncuentroAleatorio.cpp src\Jugador.cpp src\ArchivoJugadores.cpp src\ArchivoMejoras.cpp src\Enemigo.cpp src\GestorOleadas.cpp src\ArchivoEnemigos.cpp src\Arma.cpp src\Proyectil.cpp src\SistemaColisiones.cpp ^
+    pruebas\AspectoDesguazador.cpp src\Juego.cpp src\ArchivoArmas.cpp src\AspectoEnemigos.cpp src\ArchivoPartidas.cpp src\AspectoJugador.cpp src\Partida.cpp src\AspectoEncuentros.cpp src\AspectoProyectiles.cpp src\AspectoArmas.cpp src\Escenario.cpp src\EstacionMejoras.cpp src\InventarioArmas.cpp src\EncuentroAleatorio.cpp src\Jugador.cpp src\ArchivoJugadores.cpp src\ArchivoMejoras.cpp src\Enemigo.cpp src\GestorOleadas.cpp src\ArchivoEnemigos.cpp src\Arma.cpp src\Proyectil.cpp src\SistemaColisiones.cpp ^
     -L"%SFML%\lib" -lsfml-graphics-d -lsfml-window-d -lsfml-system-d ^
     -o bin\Debug\PruebaAspectoDesguazador.exe
 if errorlevel 1 exit /b 1

@@ -3,9 +3,11 @@
 #include <chrono>
 #include <cstdlib>
 #include <direct.h>
+#include <filesystem>
 #include <io.h>
 #include <process.h>
 #include <string>
+#include <stdexcept>
 
 inline std::string obtenerCarpetaSalidasPrueba()
 {
@@ -21,12 +23,34 @@ inline std::string obtenerCarpetaSalidasPrueba()
     return carpeta;
 }
 
+inline bool copiarCatalogosPrueba(const std::filesystem::path& destino)
+{
+    const std::filesystem::path origen = _access("ProyectoTPI.cbp", 0) != 0 &&
+        _access("../../ProyectoTPI.cbp", 0) == 0 ? "../../datos" : "datos";
+    std::error_code error;
+    std::filesystem::create_directories(destino, error);
+    if (error || std::filesystem::equivalent(origen, destino, error))
+    {
+        return false;
+    }
+    for (const char* nombre : {"Armas.dat", "Enemigos.dat"})
+    {
+        std::filesystem::copy_file(origen / nombre, destino / nombre,
+            std::filesystem::copy_options::skip_existing, error);
+        if (error)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 inline bool prepararDatosPrueba()
 {
     const char* configurada = std::getenv("TPI_CARPETA_DATOS");
     if (configurada != nullptr && configurada[0] != '\0')
     {
-        return true;
+        return copiarCatalogosPrueba(configurada);
     }
     std::string base = ".";
     if (_access("ProyectoTPI.cbp", 0) == 0)
@@ -43,5 +67,20 @@ inline bool prepararDatosPrueba()
     {
         return false;
     }
-    return _putenv_s("TPI_CARPETA_DATOS", carpeta.c_str()) == 0;
+    return copiarCatalogosPrueba(carpeta) && _putenv_s("TPI_CARPETA_DATOS", carpeta.c_str()) == 0;
+}
+
+template <typename Archivo>
+bool lecturaRechazada(Archivo& archivo, const char* nombre, const char* motivo)
+{
+    try
+    {
+        archivo.leerCatalogo();
+    }
+    catch (const std::runtime_error& error)
+    {
+        const std::string mensaje = error.what();
+        return mensaje.find(nombre) != std::string::npos && mensaje.find(motivo) != std::string::npos;
+    }
+    return false;
 }

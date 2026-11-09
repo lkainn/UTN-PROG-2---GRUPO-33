@@ -1,9 +1,12 @@
 #pragma once
 
+class ArchivoPartidaEnCurso;
+
 #include "Proyectil.h"
 
 class Arma {
 public:
+    bool transferirEstado(ArchivoPartidaEnCurso& archivo);
     Arma(int id, const char* nombre, int dano, float velocidadAtaque,
          float alcance, int nivelMaximo, int cantidadProyectiles = 1,
          float dispersion = 0.0f, int maximoImpactos = 1);

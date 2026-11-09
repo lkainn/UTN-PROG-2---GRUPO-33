@@ -1,5 +1,7 @@
 #pragma once
 
+class ArchivoPartidaEnCurso;
+
 #include <SFML/Graphics.hpp>
 #include "TiposCompartidos.h"
 
@@ -23,6 +25,8 @@ private:
     int _experienciaSiguienteNivel;
     int _chatarra;
     bool _vivo;
+    int _mejorasPendientes = 0;
+    int _rebotes = 0;
 
     sf::RectangleShape _formaGrafica;  // Representacion visual para pruebas
 
@@ -32,6 +36,7 @@ private:
     bool guardarProgreso();
 
 public:
+    bool transferirEstado(ArchivoPartidaEnCurso& archivo);
     Jugador();
     void procesarEntrada();
     void actualizar(bool limitarALaVentana = true);
@@ -45,6 +50,10 @@ public:
     void reiniciar();
     void dibujar(sf::RenderWindow& ventana);
     bool restablecerProgreso();
+    bool requiereElegirMejora() const;
+    bool aplicarMejoraElegida(int idMejora);
+    void omitirMejora();
+    int getRebotes() const;
 
     Posicion getPosicion() const;
     FormaColision getFormaColision() const;

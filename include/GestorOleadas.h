@@ -1,5 +1,7 @@
 #pragma once
 
+class ArchivoPartidaEnCurso;
+
 #include "ArchivoEnemigos.h"
 #include "Enemigo.h"
 #include "TiposCompartidos.h"
@@ -20,6 +22,7 @@
 // No depende de SFML: trabaja con Posicion y con segundos.
 class GestorOleadas {
     public:
+        bool transferirEstado(ArchivoPartidaEnCurso& archivo);
         // Los enemigos aparecen en un anillo alrededor del jugador, a esta
         // distancia. Tiene que ser mayor que media pantalla para que no se
         // los vea aparecer de la nada.
@@ -120,15 +123,10 @@ class GestorOleadas {
         // Elige un punto al azar del anillo alrededor del centro dado.
         Posicion posicionDeAparicion(Posicion centro);
 
-        // Sortea entre las variantes ya habilitadas por el tiempo de partida.
+        // Sortea entre las variantes activas y habilitadas por el tiempo de partida.
         TipoEnemigo variantePorAparecer();
 
-        // Busca la fila del catalogo que corresponde a una variante. Devuelve
-        // nullptr si el archivo no la trae.
-        const RegistroEnemigo* registroDe(TipoEnemigo tipo) const;
-
-        // Crea un enemigo de esa variante usando el catalogo, o los valores
-        // escritos en crearEnemigo() si el catalogo no la tiene.
+        // Crea un enemigo de la variante elegida usando el catalogo.
         Enemigo fabricar(TipoEnemigo tipo, float x, float y) const;
 
         void generarJefeSiCorresponde(Posicion posicionJugador);
