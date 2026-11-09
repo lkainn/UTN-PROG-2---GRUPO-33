@@ -1,10 +1,15 @@
 #include "Minimapa.h"
 
+#include <algorithm>
 #include <cmath>
+#include <string>
 
-const float Minimapa::LADO = 190.0f;
+const float Minimapa::LADO = 280.0f;
 const float Minimapa::ALCANCE = 1800.0f;
 const float Minimapa::MARGEN = 18.0f;
+const float Minimapa::ICONO = 20.0f;
+const float Minimapa::ICONO_JEFE = 32.0f;
+const float Minimapa::ICONO_OBJETO = 22.0f;
 
 namespace {
 
@@ -47,7 +52,124 @@ sf::Color colorDeVariante(int idEnemigo) {
 
 }  // namespace
 
-Minimapa::Minimapa() {
+// Los iconos salen del primer cuadro de cada atlas de animacion, que ya es
+// la silueta recortada del bicho. El jefe usa celdas de 256 y el resto de
+// 192, igual que en AspectoEnemigos.
+Minimapa::Minimapa() : _iconos{}, _iconoCargado{}, _objetos{}, _objetoCargado{} {
+    _iconoCargado[0] = cargarIcono(0, "recursos/enemigos/mordaza_atlas", 192);
+    _iconoCargado[1] = cargarIcono(1, "recursos/enemigos/zancudo_atlas", 192);
+    _iconoCargado[2] = cargarIcono(2, "recursos/enemigos/yunque_atlas", 192);
+    _iconoCargado[3] = cargarIcono(3, "recursos/enemigos/desguazador_atlas", 256);
+
+    _objetoCargado[0] = cargarObjeto(0, "recursos/encuentros/contenedor_suministros_v1.png");
+    _objetoCargado[1] = cargarObjeto(1, "recursos/encuentros/estacion_mejoras_v1.png");
+}
+
+// Las imagenes de los encuentros son atlas de dos estados, uno al lado del
+// otro: cerrado y abierto. El radar solo muestra los que no se usaron, asi
+// que alcanza con el primero.
+//
+// Dentro de esa mitad el dibujo no llega a los bordes, y un icono de veinte
+// pixeles con margen transparente se ve diminuto. Por eso se busca el
+// rectangulo que realmente tiene pixeles y se recorta ahi.
+bool Minimapa::cargarObjeto(int indice, const char* ruta) {
+    sf::Image imagen;
+    if (!imagen.loadFromFile(ruta)) {
+        return false;
+    }
+
+    const sf::Vector2u tamanio = imagen.getSize();
+    const unsigned int anchoCelda = tamanio.x / 2;
+    if (anchoCelda == 0 || tamanio.y == 0) {
+        return false;
+    }
+
+    unsigned int izquierda = anchoCelda;
+    unsigned int derecha = 0;
+    unsigned int arriba = tamanio.y;
+    unsigned int abajo = 0;
+
+    for (unsigned int y = 0; y < tamanio.y; ++y) {
+        for (unsigned int x = 0; x < anchoCelda; ++x) {
+            if (imagen.getPixel({x, y}).a <= 20) {
+                continue;   // transparente: no cuenta como dibujo
+            }
+            izquierda = std::min(izquierda, x);
+            derecha = std::max(derecha, x);
+            arriba = std::min(arriba, y);
+            abajo = std::max(abajo, y);
+        }
+    }
+
+    if (derecha < izquierda || abajo < arriba) {
+        return false;   // la celda estaba vacia
+    }
+
+    const sf::IntRect recorte(
+        {(int)izquierda, (int)arriba},
+        {(int)(derecha - izquierda + 1), (int)(abajo - arriba + 1)});
+
+    if (!_objetos[indice].loadFromImage(imagen, false, recorte)) {
+        return false;
+    }
+    _objetos[indice].setSmooth(true);
+    return true;
+}
+
+bool Minimapa::dibujarObjeto(sf::RenderTarget& destino, int indice,
+                             sf::Vector2f centro, float lado) const {
+    if (indice < 0 || indice >= (int)_objetos.size() || !_objetoCargado[indice]) {
+        return false;
+    }
+
+    const sf::Vector2u tamanio = _objetos[indice].getSize();
+    if (tamanio.x == 0 || tamanio.y == 0) {
+        return false;
+    }
+
+    // Se escala por el lado mas largo para que el icono entre completo sin
+    // deformarse, sea alto o ancho.
+    const float escala = lado / (float)std::max(tamanio.x, tamanio.y);
+    sf::Sprite icono(_objetos[indice]);
+    icono.setScale({escala, escala});
+    icono.setPosition({centro.x - (float)tamanio.x * escala / 2.0f,
+                       centro.y - (float)tamanio.y * escala / 2.0f});
+    destino.draw(icono);
+    return true;
+}
+
+bool Minimapa::cargarIcono(int indice, const char* carpeta, int celda) {
+    const std::string ruta = std::string(carpeta) + "/cuerpo_0.png";
+
+    // Solo la primera celda del atlas: el resto son los demas cuadros de la
+    // caminata, que para un icono no hacen falta.
+    if (!_iconos[indice].loadFromFile(ruta, false,
+                                      sf::IntRect({0, 0}, {celda, celda}))) {
+        return false;
+    }
+    _iconos[indice].setSmooth(true);   // se ve a un decimo de su tamanio
+    return true;
+}
+
+bool Minimapa::dibujarIcono(sf::RenderTarget& destino, int idEnemigo,
+                            sf::Vector2f centro, float lado) const {
+    const int indice = idEnemigo - 1;
+    if (indice < 0 || indice >= (int)_iconos.size() || !_iconoCargado[indice]) {
+        return false;
+    }
+
+    sf::Sprite icono(_iconos[indice]);
+    const sf::Vector2u tamanio = _iconos[indice].getSize();
+    if (tamanio.x == 0 || tamanio.y == 0) {
+        return false;
+    }
+
+    const float escala = lado / (float)tamanio.x;
+    icono.setScale({escala, escala});
+    icono.setPosition({centro.x - lado / 2.0f,
+                       centro.y - (float)tamanio.y * escala / 2.0f});
+    destino.draw(icono);
+    return true;
 }
 
 float Minimapa::distanciaCuadrada(Posicion a, Posicion b) {
@@ -130,12 +252,18 @@ void Minimapa::dibujar(sf::RenderTarget& destino,
 
     for (const Posicion& punto : estaciones) {
         if (distanciaCuadrada(punto, jugador) > alcanceCuadrado) { continue; }
-        dibujarRombo(destino, aPantalla(punto, jugador, esquina), 4.0f, ESTACION);
+        const sf::Vector2f donde = aPantalla(punto, jugador, esquina);
+        if (!dibujarObjeto(destino, 1, donde, ICONO_OBJETO)) {
+            dibujarRombo(destino, donde, 4.0f, ESTACION);
+        }
     }
 
     for (const Posicion& punto : cofres) {
         if (distanciaCuadrada(punto, jugador) > alcanceCuadrado) { continue; }
-        dibujarCuadrado(destino, aPantalla(punto, jugador, esquina), 6.0f, COFRE);
+        const sf::Vector2f donde = aPantalla(punto, jugador, esquina);
+        if (!dibujarObjeto(destino, 0, donde, ICONO_OBJETO)) {
+            dibujarCuadrado(destino, donde, 6.0f, COFRE);
+        }
     }
 
     for (const Enemigo& enemigo : enemigos) {
@@ -162,8 +290,12 @@ void Minimapa::dibujar(sf::RenderTarget& destino,
             punto.y = std::min(std::max(punto.y, minimoY), maximoY);
         }
 
-        dibujarMarca(destino, punto, esJefe ? 5.0f : 2.5f,
-                     colorDeVariante(enemigo.obtenerIdEnemigo()));
+        const int id = enemigo.obtenerIdEnemigo();
+        if (!dibujarIcono(destino, id, punto, esJefe ? ICONO_JEFE : ICONO)) {
+            // Sin la imagen a mano, la marca de color cumple igual.
+            dibujarMarca(destino, punto, esJefe ? 5.0f : 2.5f,
+                         colorDeVariante(id));
+        }
     }
 
     // El jugador va ultimo para que ninguna marca lo tape. Blanco y con

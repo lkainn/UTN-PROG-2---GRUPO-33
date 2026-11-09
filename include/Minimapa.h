@@ -5,6 +5,7 @@
 
 #include <SFML/Graphics.hpp>
 
+#include <array>
 #include <vector>
 
 // Radar del sector, en una esquina de la pantalla.
@@ -28,6 +29,15 @@ class Minimapa {
         // Separacion respecto de la esquina de la ventana.
         static const float MARGEN;
 
+        // Lado del icono de un enemigo comun, el del jefe y el de los
+        // objetos del mundo. No guardan la escala del mundo: son simbolos, y
+        // a escala real serian de cuatro pixeles.
+        static const float ICONO;
+        static const float ICONO_JEFE;
+        static const float ICONO_OBJETO;
+
+        // Carga los iconos de las cuatro variantes desde los atlas de
+        // animacion. Si alguno falta, esa variante cae en su marca de color.
         Minimapa();
 
         void dibujar(sf::RenderTarget& destino,
@@ -37,6 +47,29 @@ class Minimapa {
                      const std::vector<Posicion>& estaciones) const;
 
     private:
+        // Un icono por variante, en el orden del enum: indice = id - 1.
+        std::array<sf::Texture, 4> _iconos;
+        std::array<bool, 4> _iconoCargado;
+
+        // Cofre y estacion, en ese orden.
+        std::array<sf::Texture, 2> _objetos;
+        std::array<bool, 2> _objetoCargado;
+
+        // Toma el primer cuadro del atlas de una variante como icono.
+        bool cargarIcono(int indice, const char* carpeta, int celda);
+
+        // Toma el primer estado del atlas de un objeto del mundo, recortando
+        // el margen transparente para que el icono llene su espacio.
+        bool cargarObjeto(int indice, const char* ruta);
+
+        // Dibuja el icono de la variante, o false si no esta disponible.
+        bool dibujarIcono(sf::RenderTarget& destino, int idEnemigo,
+                          sf::Vector2f centro, float lado) const;
+
+        // Igual para cofres y estaciones.
+        bool dibujarObjeto(sf::RenderTarget& destino, int indice,
+                           sf::Vector2f centro, float lado) const;
+
         // Pasa una posicion del mundo a coordenadas del recuadro.
         sf::Vector2f aPantalla(Posicion punto, Posicion jugador,
                                sf::Vector2f esquina) const;
