@@ -91,6 +91,8 @@
         <Unit filename="include/ArchivoPartidas.h" />
         <Unit filename="include/CarpetaDatos.h" />
         <Unit filename="include/ArchivoPartidaEnCurso.h" />
+        <Unit filename="include/Minimapa.h" />
+        <Unit filename="src/Minimapa.cpp" />
         <Unit filename="src/ArchivoJugadores.cpp" />
         <Unit filename="src/ArchivoMejoras.cpp" />
         <Unit filename="src/ArchivoArmas.cpp" />
