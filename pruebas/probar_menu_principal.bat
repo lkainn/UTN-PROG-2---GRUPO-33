@@ -9,7 +9,7 @@ if not exist "%COMPILADOR%" exit /b 1
 if not exist "bin\Debug" mkdir "bin\Debug"
 "%COMPILADOR%" -std=c++17 -Wall -Wextra ^
     -Iinclude -I"%SFML%\include" ^
-    pruebas\MenuPrincipal.cpp src\Juego.cpp src\AspectoEnemigos.cpp src\ArchivoPartidas.cpp src\AspectoJugador.cpp src\Partida.cpp src\AspectoEncuentros.cpp src\AspectoProyectiles.cpp src\AspectoArmas.cpp src\Escenario.cpp src\EstacionMejoras.cpp src\InventarioArmas.cpp src\EncuentroAleatorio.cpp src\Jugador.cpp src\ArchivoJugadores.cpp src\ArchivoMejoras.cpp src\Enemigo.cpp src\GestorOleadas.cpp src\ArchivoEnemigos.cpp src\Arma.cpp src\Proyectil.cpp src\SistemaColisiones.cpp ^
+    pruebas\MenuPrincipal.cpp src\Juego.cpp src\ArchivoArmas.cpp src\AspectoEnemigos.cpp src\ArchivoPartidas.cpp src\AspectoJugador.cpp src\Partida.cpp src\AspectoEncuentros.cpp src\AspectoProyectiles.cpp src\AspectoArmas.cpp src\Escenario.cpp src\EstacionMejoras.cpp src\InventarioArmas.cpp src\EncuentroAleatorio.cpp src\Jugador.cpp src\ArchivoJugadores.cpp src\ArchivoMejoras.cpp src\Enemigo.cpp src\GestorOleadas.cpp src\ArchivoEnemigos.cpp src\Arma.cpp src\Proyectil.cpp src\SistemaColisiones.cpp ^
     -L"%SFML%\lib" -lsfml-graphics-d -lsfml-window-d -lsfml-system-d ^
     -o bin\Debug\PruebaMenuPrincipal.exe
 if errorlevel 1 exit /b 1
@@ -20,4 +20,8 @@ for %%D in (libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll) do (
     if errorlevel 1 exit /b 1
 )
 bin\Debug\PruebaMenuPrincipal.exe
+if errorlevel 1 exit /b 1
+bin\Debug\PruebaMenuPrincipal.exe --reanudar
+if errorlevel 1 exit /b 1
+bin\Debug\PruebaMenuPrincipal.exe --verificar-pendiente
 exit /b %errorlevel%

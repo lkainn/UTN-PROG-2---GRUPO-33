@@ -2,124 +2,139 @@
 
 #include "CarpetaDatos.h"
 
-#include <cstring>
+#include <cerrno>
 #include <cmath>
+#include <cstddef>
+#include <cstring>
+#include <filesystem>
+#include <process.h>
+#include <stdexcept>
+#include <type_traits>
 
 const char* ArchivoEnemigos::RUTA = "datos/Enemigos.dat";
 
 namespace {
 
-// Arma un registro copiando el nombre al arreglo de tamanio fijo. strncpy no
-// agrega el cero final si el texto llega justo al limite, por eso se fuerza.
-RegistroEnemigo armarRegistro(int id, const char* nombre, int vida, int dano,
-                              float velocidad, int experiencia, int chatarra,
-                              float ancho, float alto) {
-    RegistroEnemigo registro;
-    registro.idEnemigo = id;
-    std::strncpy(registro.nombre, nombre, 30);
-    registro.nombre[29] = '\0';
-    registro.vida = vida;
-    registro.dano = dano;
-    registro.velocidad = velocidad;
-    registro.experienciaOtorgada = experiencia;
-    registro.chatarraOtorgada = chatarra;
-    registro.ancho = ancho;
-    registro.alto = alto;
-    return registro;
-}
+constexpr int CANTIDAD_VARIANTES = 4;
+constexpr std::size_t TAMANIO_REGISTRO_ANTERIOR = offsetof(RegistroEnemigo, eliminado);
+static_assert(std::is_trivially_copyable_v<RegistroEnemigo>);
+static_assert(TAMANIO_REGISTRO_ANTERIOR == 64 && sizeof(RegistroEnemigo) == 68);
 
 // Un registro leido puede venir de un archivo editado a mano o cortado por la
 // mitad. Antes de usarlo se revisa que los valores tengan sentido.
 bool registroEsUsable(const RegistroEnemigo& registro) {
-    return registro.idEnemigo >= 1 && registro.idEnemigo <= 4 &&
+    return registro.idEnemigo >= 1 && registro.idEnemigo <= CANTIDAD_VARIANTES &&
+           registro.eliminado <= 1 &&
+           (registro.eliminado == 0 ||
+               (registro.idEnemigo != BASICO + 1 && registro.idEnemigo != JEFE + 1)) &&
            registro.vida > 0 && registro.dano >= 0 &&
            std::isfinite(registro.velocidad) && registro.velocidad > 0.0f &&
            registro.experienciaOtorgada >= 0 &&
            registro.chatarraOtorgada >= 0 &&
            std::isfinite(registro.ancho) && std::isfinite(registro.alto) &&
            registro.ancho > 0.0f && registro.alto > 0.0f &&
+           registro.nombre[0] != '\0' &&
            std::memchr(registro.nombre, '\0', sizeof(registro.nombre)) != nullptr;
 }
 
-}  // namespace
-
-// Los mismos valores que antes estaban escritos en crearEnemigo(). Ahora viven
-// en un solo lugar y de aca salen tanto el archivo como el juego.
-std::vector<RegistroEnemigo> ArchivoEnemigos::catalogoDeFabrica() {
-    std::vector<RegistroEnemigo> catalogo;
-    catalogo.push_back(armarRegistro(1, "Robot basico", 100, 10, 120.0f,
-                                     5, 3, 56.0f, 56.0f));
-    catalogo.push_back(armarRegistro(2, "Robot rapido", 60, 8, 220.0f,
-                                     7, 2, 40.0f, 40.0f));
-    catalogo.push_back(armarRegistro(3, "Robot resistente", 250, 15, 70.0f,
-                                     12, 6, 72.0f, 72.0f));
-    catalogo.push_back(armarRegistro(4, "Jefe chatarrero", 3000, 35, 85.0f,
-                                     200, 120, 120.0f, 120.0f));
-    return catalogo;
-}
-
-bool ArchivoEnemigos::guardarCatalogo(
-        const std::vector<RegistroEnemigo>& catalogo) {
-    if (catalogo.empty()) {
+bool ordenarCatalogo(const std::vector<RegistroEnemigo>& registros,
+                     std::vector<RegistroEnemigo>& ordenados)
+{
+    if (registros.size() != CANTIDAD_VARIANTES)
+    {
         return false;
     }
-    for (const RegistroEnemigo& registro : catalogo)
+
+    for (const RegistroEnemigo& registro : registros)
     {
         if (!registroEsUsable(registro))
         {
             return false;
         }
+        RegistroEnemigo& destino = ordenados[registro.idEnemigo - 1];
+        if (destino.idEnemigo != 0)
+        {
+            return false;
+        }
+        destino = registro;
     }
-
-    // fopen no crea carpetas: sin esto, al ejecutar desde otro directorio el
-    // guardado falla en silencio.
-    asegurarCarpetaDatos();
-
-    FILE* archivo = fopen(obtenerRutaDatos(RUTA).c_str(), "wb");
-    if (archivo == NULL) {
-        return false;  // el disco esta protegido o la ruta es invalida
-    }
-
-    const std::size_t escritos =
-        fwrite(catalogo.data(), sizeof(RegistroEnemigo), catalogo.size(),
-               archivo);
-    const bool cerrado = fclose(archivo) == 0;
-
-    return escritos == catalogo.size() && cerrado;
+    return true;
 }
 
-std::vector<RegistroEnemigo> ArchivoEnemigos::leerCatalogo() {
-    FILE* archivo = fopen(obtenerRutaDatos(RUTA).c_str(), "rb");
+}  // namespace
 
-    // Primera ejecucion en esta maquina: se crea el archivo con los valores de
-    // fabrica para que la partida pueda empezar igual.
-    if (archivo == NULL) {
-        const std::vector<RegistroEnemigo> fabrica = catalogoDeFabrica();
-        guardarCatalogo(fabrica);
-        return fabrica;
+bool ArchivoEnemigos::guardarCatalogo(
+        const std::vector<RegistroEnemigo>& catalogo)
+{
+    std::vector<RegistroEnemigo> ordenados(CANTIDAD_VARIANTES);
+    if (!ordenarCatalogo(catalogo, ordenados))
+    {
+        return false;
     }
 
-    std::vector<RegistroEnemigo> catalogo;
-    RegistroEnemigo registro;
+    asegurarCarpetaDatos();
+    const std::string destino = obtenerRutaDatos(RUTA);
+    const std::string temporal = destino + "." + std::to_string(_getpid()) + ".tmp";
+    FILE* archivo = fopen(temporal.c_str(), "wb");
+    if (archivo == nullptr)
+    {
+        return false;
+    }
 
-    // fread devuelve cuantos registros COMPLETOS leyo. Al llegar al final, o
-    // si el archivo quedo cortado por la mitad, devuelve algo distinto de 1 y
-    // el bucle termina sin cargar basura.
-    while (fread(&registro, sizeof(RegistroEnemigo), 1, archivo) == 1) {
-        if (registroEsUsable(registro)) {
-            catalogo.push_back(registro);
+    const bool escrito = fwrite(ordenados.data(), sizeof(RegistroEnemigo),
+        ordenados.size(), archivo) == ordenados.size();
+    const bool cerrado = fclose(archivo) == 0;
+    std::error_code error;
+    if (escrito && cerrado)
+    {
+        std::filesystem::rename(temporal, destino, error);
+        if (!error)
+        {
+            return true;
         }
     }
-    fclose(archivo);
 
-    // El archivo existia pero no quedo nada aprovechable: se rehace.
-    if (catalogo.empty()) {
-        const std::vector<RegistroEnemigo> fabrica = catalogoDeFabrica();
-        guardarCatalogo(fabrica);
-        return fabrica;
+    std::filesystem::remove(temporal, error);
+    return false;
+}
+
+std::vector<RegistroEnemigo> ArchivoEnemigos::leerCatalogo()
+{
+    const std::string ruta = obtenerRutaDatos(RUTA);
+    FILE* archivo = fopen(ruta.c_str(), "rb");
+    if (archivo == nullptr)
+    {
+        const char* motivo = errno == ENOENT ? "Falta el catalogo obligatorio " : "No se pudo abrir ";
+        throw std::runtime_error(motivo + ruta);
     }
 
-    return catalogo;
+    const long bytes = fseek(archivo, 0, SEEK_END) == 0 ? ftell(archivo) : -1;
+    const bool formatoAnterior =
+        bytes == static_cast<long>(TAMANIO_REGISTRO_ANTERIOR * CANTIDAD_VARIANTES);
+    const bool formatoActual =
+        bytes == static_cast<long>(sizeof(RegistroEnemigo) * CANTIDAD_VARIANTES);
+    std::vector<RegistroEnemigo> registros(CANTIDAD_VARIANTES);
+    bool leido = (formatoAnterior || formatoActual) && fseek(archivo, 0, SEEK_SET) == 0;
+    if (leido)
+    {
+        // El formato anterior coincide con el registro actual hasta el campo eliminado.
+        const std::size_t tamanio = formatoAnterior ? TAMANIO_REGISTRO_ANTERIOR : sizeof(RegistroEnemigo);
+        for (RegistroEnemigo& registro : registros)
+        {
+            if (fread(&registro, tamanio, 1, archivo) != 1)
+            {
+                leido = false;
+                break;
+            }
+        }
+    }
+    const bool cerrado = fclose(archivo) == 0;
+    std::vector<RegistroEnemigo> ordenados(CANTIDAD_VARIANTES);
+    if (leido && cerrado && ordenarCatalogo(registros, ordenados))
+    {
+        return ordenados;
+    }
+    throw std::runtime_error("El catalogo " + ruta + " esta danado o contiene datos invalidos");
 }
 
 Enemigo crearEnemigoDesdeCatalogo(const RegistroEnemigo& registro,
@@ -128,4 +143,11 @@ Enemigo crearEnemigoDesdeCatalogo(const RegistroEnemigo& registro,
                    registro.velocidad, registro.vida, registro.dano,
                    registro.nombre, registro.experienciaOtorgada,
                    registro.chatarraOtorgada);
+}
+
+Enemigo crearEnemigo(TipoEnemigo tipo, float x, float y)
+{
+    const auto catalogo = ArchivoEnemigos{}.leerCatalogo();
+    const int indice = tipo >= BASICO && tipo <= JEFE ? tipo : BASICO;
+    return crearEnemigoDesdeCatalogo(catalogo[indice], x, y);
 }

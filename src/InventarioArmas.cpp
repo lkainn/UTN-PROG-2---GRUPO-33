@@ -1,4 +1,5 @@
 #include "InventarioArmas.h"
+#include "ArchivoPartidaEnCurso.h"
 
 #include <algorithm>
 #include <limits>
@@ -37,8 +38,20 @@ int OfertaArma::obtenerPorcentajeCadencia() const
 }
 
 InventarioArmas::InventarioArmas()
-    : _slots{{1, 0}}, _bonificaciones{}
+    : InventarioArmas(std::array<bool, 4>{{true, true, true, true}})
 {
+}
+
+InventarioArmas::InventarioArmas(const std::array<bool, 4>& disponibles)
+    : _slots{{1, 0}}, _bonificaciones{}, _disponibles(disponibles)
+{
+    _disponibles[0] = true;
+}
+
+void InventarioArmas::reiniciar()
+{
+    _slots = {{1, 0}};
+    _bonificaciones = {};
 }
 
 int InventarioArmas::obtenerIdSlot(std::size_t slot) const
@@ -54,7 +67,7 @@ bool InventarioArmas::poseeArma(int idArma) const
 
 bool InventarioArmas::puedeRecibirArma(int idArma) const
 {
-    if (idArma < 1 || idArma > 4)
+    if (idArma < 1 || idArma > 4 || !_disponibles[idArma - 1])
     {
         return false;
     }
@@ -120,15 +133,34 @@ BonificacionesArma InventarioArmas::obtenerBonificaciones(int idArma) const
     return idArma >= 1 && idArma <= 4 ? _bonificaciones[idArma - 1] : BonificacionesArma{};
 }
 
-const char* InventarioArmas::obtenerNombreArma(int idArma)
-{
-    constexpr std::array<const char*, 4> NOMBRES{{"Pistola", "Metralleta", "Escopeta", "Canon de energia"}};
-    return idArma >= 1 && idArma <= 4 ? NOMBRES[idArma - 1] : "Vacio";
-}
-
 const char* InventarioArmas::obtenerNombreRareza(RarezaMejora rareza)
 {
     constexpr std::array<const char*, 4> NOMBRES{{"Comun", "Rara", "Epica", "Legendaria"}};
     const int indice = static_cast<int>(rareza);
     return indice >= 0 && indice <= 3 ? NOMBRES[indice] : "Invalida";
+}
+
+bool OfertaArma::transferirEstado(ArchivoPartidaEnCurso& archivo)
+{
+    return archivo(idArma, rareza, especial) &&
+        ((idArma == 0 && rareza == RarezaMejora::Comun && !especial) || esValida());
+}
+
+bool BonificacionesArma::transferirEstado(ArchivoPartidaEnCurso& archivo)
+{
+    return archivo(porcentajeDano, porcentajeCadencia, especiales) &&
+        porcentajeDano >= 0 && porcentajeCadencia >= 0 && especiales >= 0 && especiales <= 4;
+}
+
+bool InventarioArmas::transferirEstado(ArchivoPartidaEnCurso& archivo)
+{
+    if (!archivo(_slots, _bonificaciones))
+    {
+        return false;
+    }
+    const int primero = _slots[0];
+    const int segundo = _slots[1];
+    return primero >= 1 && primero <= 4 && _disponibles[primero - 1] &&
+        segundo >= 0 && segundo <= 4 && segundo != 1 && primero != segundo &&
+        (segundo == 0 ? primero == 1 : _disponibles[segundo - 1]);
 }

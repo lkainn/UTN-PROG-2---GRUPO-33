@@ -90,7 +90,7 @@ int main()
         correcto &= comprobar(iguales(estacion.obtenerOferta(indice), ofertas[indice]), "cancelacion conserva ofertas");
     }
     correcto &= comprobar(generador == estadoGenerador && !estacion.obtenerOferta(3).esValida() &&
-        estacion.describirOpcion(3).empty(), "reabrir no resortea e indice invalido es seguro");
+        estacion.describirOpcion(3, "").empty(), "reabrir no resortea e indice invalido es seguro");
     estacion.cancelarCompra();
     estacion.abrirMenu(inventario, generador);
     for (std::size_t indice = 0; indice < 3; ++indice)

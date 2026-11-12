@@ -194,6 +194,9 @@ int main()
         "pausa no incrementa duracion");
     juego.manejarEscape();
 
+    juego._inventarioArmas.aplicarOferta({2, RarezaMejora::Rara, false});
+    juego.aplicarBonificacionesArmas();
+    juego.jugador.recibirDano(10);
     juego._gestorOleadas.actualizar(centro, 300.0f);
     for (Enemigo& enemigo : enemigos)
     {
@@ -225,10 +228,49 @@ int main()
     captura.update(juego.ventana);
     correcto &= comprobar(captura.copyToImage().saveToFile(obtenerCarpetaSalidasPrueba() + "/resultado_victoria.png"),
         "captura de resultado");
+
+    const int vidaVictoria = juego.jugador.getVida();
+    const int chatarraVictoria = juego.jugador.getChatarra();
+    const std::size_t enemigosVictoria = enemigos.size();
+    const sf::FloatRect boton = juego.areaBotonInfinito();
+    juego.procesarClicResultado({0, 0});
+    correcto &= comprobar(juego.puedeContinuarEnInfinito() && !juego._modoInfinito,
+        "el boton aparece en victoria y un clic afuera no reanuda");
+    juego.procesarClicResultado(juego.ventana.mapCoordsToPixel(
+        boton.position + boton.size / 2.0f, juego.ventana.getDefaultView()));
+    correcto &= comprobar(juego._estado == Juego::EstadoJuego::Jugando && juego._modoInfinito &&
+        juego.jugador.getVida() == vidaVictoria && juego.jugador.getChatarra() == chatarraVictoria &&
+        juego._inventarioArmas.obtenerIdSlot(1) == 2 && enemigos.size() == enemigosVictoria &&
+        juego._gestorOleadas.tiempoDePartida() == tiempoOleadas,
+        "continuar conserva la partida, el equipo y el reloj");
+    correcto &= comprobar(juego.guardarPartida() && juego.reanudarPartida() &&
+        juego._modoInfinito && juego._partidaGuardada && juego._partida.fueVictoria() &&
+        juego._gestorOleadas.tiempoDePartida() == tiempoOleadas && historial.cantidadRegistros() == 1,
+        "guardar y reanudar el modo infinito conserva una sola victoria");
+    juego.actualizarEnemigos(1.0f);
+    juego._gestorOleadas.danarATodos(9999);
+    juego.actualizarEnemigos(0.0f);
+    enemigos.push_back(crearEnemigo(BASICO, centro.x + 200.0f, centro.y));
+    juego._proyectiles.clear();
+    juego.actualizar();
+    correcto &= comprobar(juego._estado == Juego::EstadoJuego::Jugando &&
+        juego._gestorOleadas.tiempoDePartida() > tiempoOleadas &&
+        juego._partida.obtenerEnemigosEliminados() > 2 && !juego._proyectiles.empty(),
+        "el modo infinito avanza el reloj, registra bajas y permite disparar");
+    juego.jugador.recibirDano(9999);
+    juego.actualizarPartida(0.0f);
+    juego.procesarEntradaMenu(sf::Keyboard::Scancode::I);
+    const auto registros = historial.leerTodas();
+    correcto &= comprobar(juego._estado == Juego::EstadoJuego::Resultado &&
+        !juego.puedeContinuarEnInfinito() && registros.size() == 1 && registros[0].victoria &&
+        registros[0].puntaje == 5060 && registros[0].duracionSegundos == tiempoFinal,
+        "morir en infinito termina la partida y conserva una sola victoria");
     juego.procesarEntradaMenu(sf::Keyboard::Scancode::Escape);
     correcto &= comprobar(juego._estado == Juego::EstadoJuego::Menu, "resultado vuelve al menu");
     juego.procesarEntradaMenu(sf::Keyboard::Scancode::Enter);
-    correcto &= comprobar(juego._partida.estaEnCurso(), "jugar desde menu crea nueva partida");
+    correcto &= comprobar(juego._estado == Juego::EstadoJuego::Menu && !juego._continuacionDisponible,
+        "Continuar queda inactivo despues de terminar la partida");
+    juego.iniciarNuevaPartida();
 
     juego._inventarioArmas.aplicarOferta({3, RarezaMejora::Legendaria, true});
     juego.aplicarBonificacionesArmas();

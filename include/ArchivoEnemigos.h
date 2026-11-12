@@ -3,6 +3,7 @@
 #include "Enemigo.h"
 
 #include <cstdio>
+#include <cstdint>
 #include <vector>
 
 // Un renglon de Enemigos.dat: las estadisticas de una variante de enemigo.
@@ -24,26 +25,21 @@ struct RegistroEnemigo {
     int chatarraOtorgada;
     float ancho;
     float alto;
+    std::uint32_t eliminado = 0;
 };
 
 // Catalogo de variantes de enemigo guardado en datos/Enemigos.dat.
 //
-// El archivo se lee una vez al empezar la partida. Si no existe, se crea con
-// los valores de fabrica, asi la primera ejecucion en una maquina nueva
-// funciona sin pasos previos.
+// El archivo es obligatorio y se lee al empezar la partida.
 class ArchivoEnemigos {
     public:
         static const char* RUTA;
 
-        // Devuelve el catalogo completo. Si el archivo falta o esta
-        // inservible, devuelve los valores de fabrica y los escribe.
+        // Devuelve cuatro registros ordenados por ID o informa un error de lectura.
         std::vector<RegistroEnemigo> leerCatalogo();
 
         bool guardarCatalogo(const std::vector<RegistroEnemigo>& catalogo);
 
-        // Los valores de fabrica, sin tocar el disco. Separado para poder
-        // compararlo contra lo leido en las pruebas.
-        static std::vector<RegistroEnemigo> catalogoDeFabrica();
 };
 
 // Construye un enemigo de la variante descrita por el registro, en la posicion

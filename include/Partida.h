@@ -1,5 +1,7 @@
 #pragma once
 
+class ArchivoPartidaEnCurso;
+
 // Estado y resultado de una partida.
 //
 // Lleva la cuenta de lo que hay que mostrar mientras se juega y de lo que hay
@@ -17,6 +19,7 @@ enum class ResultadoPartida {
 
 class Partida {
     public:
+        bool transferirEstado(ArchivoPartidaEnCurso& archivo);
         // Cuanto suma al puntaje cada enemigo eliminado.
         static const int PUNTOS_POR_ENEMIGO;
 

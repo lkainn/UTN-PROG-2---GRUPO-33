@@ -12,7 +12,7 @@ if not exist "%COMPILADOR%" (
 if not exist "bin\Debug" mkdir "bin\Debug"
 
 "%COMPILADOR%" -std=c++17 -Wall -Wextra -Werror -Iinclude ^
-    pruebas\Recompensas.cpp src\Enemigo.cpp ^
+    pruebas\Recompensas.cpp src\Enemigo.cpp src\ArchivoEnemigos.cpp ^
     -o bin\Debug\PruebaRecompensas.exe
 
 if errorlevel 1 exit /b 1

@@ -1,4 +1,6 @@
 #include "Arma.h"
+#include "ArchivoArmas.h"
+#include "CarpetaDatos.h"
 #include "EntornoDatosPrueba.h"
 #include "AspectoArmas.h"
 #include "AspectoProyectiles.h"
@@ -10,6 +12,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <random>
@@ -265,6 +268,48 @@ int main()
         mejorado.recursosSuelo.size() == 12, "septimo enemigo intacto y seis recompensas unicas");
     mejorado.ventana.close();
     juego.ventana.close();
-    std::cout << (correcto ? "Armas nuevas: abanico, perforacion, identidades, recargas y render correctos\n" : "Hay fallos\n");
+
+    const ArchivoArmas archivo;
+    auto catalogo = archivo.leerCatalogo();
+    const std::string ruta = obtenerRutaDatos("Armas.dat");
+    correcto &= comprobar(_access(ruta.c_str(), 0) == 0, "carga el catalogo incluido");
+    catalogo[0] = {1, "Pistola de prueba", 42, 3.0f, 450.0f, 7, 0};
+    catalogo[2].eliminado = 1;
+    std::swap(catalogo[0], catalogo[3]);
+    correcto &= comprobar(archivo.guardarCatalogo(catalogo), "guarda catalogo por ID");
+    catalogo[1].idArma = catalogo[0].idArma;
+    correcto &= comprobar(!archivo.guardarCatalogo(catalogo), "rechaza IDs duplicados");
+
+    Juego personalizado;
+    personalizado.ventana.setVisible(false);
+    const Arma& pistola = personalizado.armaPrueba;
+    correcto &= comprobar(pistola.obtenerDano() == 42 && pistola.obtenerVelocidadAtaque() == 3.0f &&
+        pistola.obtenerAlcance() == 450.0f && pistola.obtenerNivelMaximo() == 7 &&
+        std::string(personalizado.obtenerNombreArma(1)) == "Pistola de prueba",
+        "Juego usa las estadisticas y el nombre del catalogo");
+    personalizado.iniciarNuevaPartida();
+    auto& inventario = personalizado._inventarioArmas;
+    auto& estacion = personalizado._estacionMejoras;
+    estacion.abrirMenu(inventario, personalizado._generador);
+    correcto &= comprobar(estacion.menuAbierto() &&
+        estacion.obtenerOferta(0).idArma != 3 && estacion.obtenerOferta(1).idArma != 3 &&
+        estacion.obtenerOferta(2).idArma != 3 &&
+        !inventario.aplicarOferta({3, RarezaMejora::Comun, false}),
+        "la baja logica excluye el arma de las ofertas tras iniciar otra partida");
+    personalizado.ventana.close();
+
+    {
+        std::ofstream truncado(ruta, std::ios::binary | std::ios::trunc);
+        truncado.put('\0');
+        correcto &= comprobar(truncado.good(), "prepara un catalogo truncado");
+    }
+    correcto &= comprobar(lecturaRechazada(archivo, "Armas.dat", "danado") &&
+        std::ifstream(ruta, std::ios::binary | std::ios::ate).tellg() == std::streamoff{1},
+        "rechaza el catalogo truncado y conserva el archivo");
+    correcto &= comprobar(std::filesystem::remove(ruta) &&
+        lecturaRechazada(archivo, "Armas.dat", "Falta") && !std::filesystem::exists(ruta),
+        "el catalogo es obligatorio y el lector no lo recrea");
+
+    std::cout << (correcto ? "Armas nuevas y Armas.dat: pruebas correctas\n" : "Hay fallos\n");
     return correcto ? 0 : 1;
 }

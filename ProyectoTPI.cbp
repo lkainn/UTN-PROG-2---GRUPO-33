@@ -92,11 +92,14 @@
 		<Unit filename="src/main.cpp" />
         <Unit filename="include/ArchivoJugadores.h" />
         <Unit filename="include/ArchivoMejoras.h" />
+        <Unit filename="include/ArchivoArmas.h" />
         <Unit filename="include/ArchivoEnemigos.h" />
         <Unit filename="include/ArchivoPartidas.h" />
         <Unit filename="include/CarpetaDatos.h" />
+        <Unit filename="include/ArchivoPartidaEnCurso.h" />
         <Unit filename="src/ArchivoJugadores.cpp" />
         <Unit filename="src/ArchivoMejoras.cpp" />
+        <Unit filename="src/ArchivoArmas.cpp" />
         <Unit filename="src/ArchivoEnemigos.cpp" />
         <Unit filename="src/ArchivoPartidas.cpp" />
 		<Extensions />
