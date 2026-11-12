@@ -108,6 +108,13 @@ Al aparecer, los enemigos comunes reciben un aumento según el tiempo de
 partida, hasta un 50 % de vida, un 25 % de daño de contacto y un 15 % de
 velocidad adicionales al minuto cinco.
 
+El minimapa de la esquina inferior derecha muestra el sector cercano con
+Remache en el centro e iconos de enemigos, cofres y estaciones disponibles.
+El jefe se indica en el borde cuando esta fuera de alcance. Los cofres abiertos
+y las estaciones usadas desaparecen del radar.
+La prueba `pruebas/probar_minimapa.bat` comprueba los iconos desde la raiz y
+desde `bin/Debug`, los bordes y la reconstruccion del radar al reanudar.
+
 El suelo representa un depósito de chatarra al aire libre. `Escenario.h` y
 `Escenario.cpp` administran su textura, guardada en `recursos/entorno`.
 La cámara sigue al jugador y el suelo se repite en coordenadas de mundo,

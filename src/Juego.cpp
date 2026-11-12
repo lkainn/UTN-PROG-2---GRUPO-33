@@ -603,6 +603,7 @@ void Juego::dibujar() {
     dibujarIndicadoresRecurso();
     ventana.setView(ventana.getDefaultView());
     dibujarInterfaz();
+    dibujarMinimapa();
     if (_estado == EstadoJuego::SubiendoNivel)
     {
         dibujarCartas();
@@ -1303,6 +1304,32 @@ void Juego::dibujarEstacionMejoras(const ObjetoEncuentro& objeto)
         texto.setOutlineColor(sf::Color::Black);
         ventana.draw(texto);
     }
+}
+
+void Juego::dibujarMinimapa()
+{
+    std::vector<Posicion> cofres;
+    std::vector<Posicion> estaciones;
+    for (const auto& zona : _encuentros.obtenerZonas())
+    {
+        for (const ObjetoEncuentro& objeto : zona.second)
+        {
+            if (!objeto.presente || objeto.usado)
+            {
+                continue;
+            }
+            if (objeto.tipo == TipoEncuentro::Cofre)
+            {
+                cofres.push_back(objeto.posicion);
+            }
+            else
+            {
+                estaciones.push_back(objeto.posicion);
+            }
+        }
+    }
+    _minimapa.dibujar(ventana, jugador.getPosicion(),
+                     _gestorOleadas.obtenerEnemigos(), cofres, estaciones);
 }
 
 void Juego::dibujarMenuEstacion()
